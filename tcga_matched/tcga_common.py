@@ -57,7 +57,7 @@ def map_geo_mirna_to_tcga(geo_names, tcga_mir):
     means = tcga_mir.mean()
     mapping = {}
     for g in geo_names:
-        base = g.split('|')[0].strip()
+        base = g.split('|')[0].split(' ')[0].strip()
         if base in cols:
             mapping[g] = base
             continue
