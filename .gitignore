@@ -38,3 +38,7 @@ data_processed.zip
 
 # large archives
 *.zip
+
+# study-final scratch
+results/study_final/runs/
+results/study_final/tabpfn_inputs/
