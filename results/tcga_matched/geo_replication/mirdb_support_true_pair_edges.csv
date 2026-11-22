@@ -1,0 +1,3 @@
+cohort,n_samples,pairs_tested,miRDB_targets_ge80_in_panel,fdr_sig_negative,fdr_sig_negative_miRDB,frac_miRDB_sig_negative,frac_miRDB_background,odds_ratio_negative,fisher_p_negative,fdr_sig_positive,odds_ratio_positive_control,fisher_p_positive_control
+TCGA TNBC tumors (true pairs),102,56580,847,2569,52,0.02024133904242896,0.014719223861805929,1.382914171058188,0.018268134692788544,3746,0.9214425568574571,0.7342337517885087
+TCGA normals (true pairs),76,56580,847,4111,58,0.014108489418632936,0.01503745068516648,0.9373394412500778,0.7004926694794317,4421,0.8009642420180472,0.9524387071684547

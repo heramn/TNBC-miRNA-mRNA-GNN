@@ -1,0 +1,7 @@
+class,split,GEO,TCGA
+metastatic,test,11,0
+metastatic,train,42,0
+normal,test,6,17
+normal,train,33,59
+primary,test,23,27
+primary,train,115,75

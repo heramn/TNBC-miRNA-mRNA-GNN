@@ -1,0 +1,55 @@
+{
+  "task": "node",
+  "n_samples": 102,
+  "n_patients": 102,
+  "class_counts": {
+    "N0": 65,
+    "Npos": 37
+  },
+  "n_train": 76,
+  "n_fit": 61,
+  "n_val": 15,
+  "n_test": 26,
+  "test_class_counts": {
+    "N0": 18,
+    "Npos": 8
+  },
+  "geo_panel_mirna_mapped": 237,
+  "geo_panel_mrna_in_tcga": 230,
+  "nodes": {
+    "miRNA": 60,
+    "mRNA": 60
+  },
+  "de_train_fdr05": {
+    "miRNA": 0,
+    "mRNA": 0
+  },
+  "networks": {
+    "N0": {
+      "cross_fdr_sig_total": 61,
+      "cross_fdr_sig_negative": 20,
+      "cross_tested": 3600,
+      "n_train_samples": 47,
+      "miRNA-miRNA": 150,
+      "mRNA-mRNA": 150,
+      "miRNA-mRNA": 20
+    },
+    "Npos": {
+      "cross_fdr_sig_total": 6,
+      "cross_fdr_sig_negative": 0,
+      "cross_tested": 3600,
+      "n_train_samples": 29,
+      "miRNA-miRNA": 106,
+      "mRNA-mRNA": 62
+    }
+  },
+  "permutation": {
+    "rewired_f1_mean": 0.5004292513842836,
+    "rewired_f1_sd": 0.05789054487208033,
+    "p_f1_real_vs_rewired": 0.39603960396039606,
+    "rewired_auroc_mean": 0.5516666666666667,
+    "p_auroc_real_vs_rewired": 0.4158415841584158,
+    "n_rewire": 100
+  },
+  "seconds": 572.0183300971985
+}

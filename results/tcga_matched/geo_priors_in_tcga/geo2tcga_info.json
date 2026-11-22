@@ -1,0 +1,19 @@
+{
+  "p_real_vs_rewired": {
+    "auroc": 0.47619047619047616,
+    "macro_f1": 0.5714285714285714
+  },
+  "tcga_n": {
+    "tumor": 102,
+    "normal": 76
+  },
+  "nodes": {
+    "miRNA": 66,
+    "mRNA": 153
+  },
+  "geo_edges_mappable": {
+    "normal": 361,
+    "primary": 354,
+    "metastatic": 353
+  }
+}
