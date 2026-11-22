@@ -54,10 +54,12 @@ if TASK == 'tumor_vs_normal':
     keep = meta.tissue.isin(['tumor', 'normal'])
     y_all = (meta.tissue == 'tumor').astype(int)
     class_names = ['normal', 'tumor']
-else:
+elif TASK == 'node':
     keep = (meta.tissue == 'tumor') & meta.node.isin(['N0', 'Npos'])
     y_all = (meta.node == 'Npos').astype(int)
     class_names = ['N0', 'Npos']
+else:
+    sys.exit(f'unknown task {TASK!r}; use tumor_vs_normal or node')
 ids = meta.index[keep]
 y = y_all[ids].values
 groups = meta.loc[ids, 'patient'].values
