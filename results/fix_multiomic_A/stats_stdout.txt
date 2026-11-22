@@ -1,0 +1,48 @@
+      model      condition       modality  n_seeds  n_test  macro_f1_mean  macro_f1_sd  macro_f1_min  macro_f1_max  acc_mean  ci95_lo  ci95_hi
+0       GAT          joint          miRNA       20      40          0.854        0.018         0.836         0.885     0.867    0.711    0.950
+1       GAT          joint           mRNA       20      40          0.797        0.036         0.730         0.872     0.818    0.658    0.900
+2       GAT  joint_nocross          miRNA       20      40          0.845        0.021         0.795         0.885     0.860    0.702    0.944
+3       GAT  joint_nocross           mRNA       20      40          0.795        0.034         0.742         0.865     0.812    0.647    0.892
+4       GAT   paired_order  both (paired)       20      40          0.852        0.030         0.800         0.908     0.876    0.693    0.950
+5       GAT  paired_random  both (paired)       20      40          0.886        0.037         0.809         0.955     0.894    0.796    0.941
+6       GAT   single_mirna          miRNA       20      40          0.823        0.023         0.767         0.861     0.841    0.672    0.930
+7       GAT    single_mrna           mRNA       20      40          0.781        0.049         0.674         0.855     0.791    0.645    0.872
+8   XGBoost          joint          miRNA       20      40          0.808        0.005         0.789         0.809     0.824    0.653    0.928
+9   XGBoost          joint           mRNA       20      40          0.807        0.023         0.765         0.859     0.815    0.660    0.906
+10  XGBoost   paired_order  both (paired)       20      40          0.843        0.006         0.842         0.869     0.851    0.711    0.946
+11  XGBoost  paired_random  both (paired)       20      40          0.880        0.034         0.823         0.931     0.885    0.780    0.957
+12  XGBoost   single_mirna          miRNA       20      40          0.809        0.000         0.809         0.809     0.825    0.662    0.927
+13  XGBoost    single_mrna           mRNA       20      40          0.793        0.022         0.756         0.820     0.804    0.641    0.900
+     model                   condition               pairing   mean     sd   p2_5  p97_5     n
+0      GAT                       joint      order (01 build)  0.869  0.025  0.835  0.924    20
+1      GAT                       joint  random within tissue  0.925  0.035  0.851  0.978  1000
+2      GAT               joint_nocross      order (01 build)  0.873  0.023  0.843  0.910    20
+3      GAT               joint_nocross  random within tissue  0.919  0.034  0.855  0.977  1000
+4      GAT  single_mirna + single_mrna      order (01 build)  0.861  0.025  0.822  0.910    20
+5      GAT  single_mirna + single_mrna  random within tissue  0.902  0.036  0.829  0.977  1000
+6  XGBoost                       joint      order (01 build)  0.813  0.018  0.793  0.844    20
+7  XGBoost                       joint  random within tissue  0.904  0.034  0.842  0.955  1000
+8  XGBoost  single_mirna + single_mrna      order (01 build)  0.800  0.013  0.793  0.829    20
+9  XGBoost  single_mirna + single_mrna  random within tissue  0.886  0.034  0.823  0.953  1000
+                  modality  real_mean  no_cross_edges_mean  null_mean  null_sd  n_perm  p_empirical  p_mannwhitney_runs_vs_null
+0                    miRNA      0.854                0.845      0.841    0.023     100        0.337                       0.005
+1                     mRNA      0.797                0.795      0.798    0.036     100        0.515                       0.573
+2  miRNA+mRNA test samples      0.825                0.819      0.818    0.022     100        0.436                       0.128
+      condition       modality  gat_only_correct  xgb_only_correct  mcnemar_exact_p  gat_majority_f1  xgb_majority_f1
+0         joint          miRNA                 2                 0              0.5            0.861            0.809
+1         joint           mRNA                 5                 5              1.0            0.784            0.791
+2  single_mirna          miRNA                 1                 0              1.0            0.836            0.809
+3   single_mrna           mRNA                 5                 5              1.0            0.797            0.784
+4  paired_order  both (paired)                 3                 2              1.0            0.851            0.842
+                                     contrast       modality  diff_macro_f1  ci95_lo  ci95_hi  boot_frac_le_0
+0         GAT joint - XGBoost single-modality          miRNA          0.045   -0.000    0.124           0.032
+1         GAT joint - XGBoost single-modality           mRNA          0.005   -0.135    0.144           0.455
+2      GAT joint - XGBoost joint (NaN-masked)          miRNA          0.046    0.001    0.120           0.020
+3      GAT joint - XGBoost joint (NaN-masked)           mRNA         -0.010   -0.144    0.120           0.580
+4             GAT joint - GAT single-modality          miRNA          0.031    0.005    0.068           0.005
+5             GAT joint - GAT single-modality           mRNA          0.017   -0.023    0.053           0.185
+6   GAT joint - GAT joint without cross edges          miRNA          0.009    0.000    0.024           0.024
+7   GAT joint - GAT joint without cross edges           mRNA          0.002   -0.015    0.017           0.380
+8     GAT joint_nocross - GAT single-modality          miRNA          0.022    0.003    0.051           0.007
+9     GAT joint_nocross - GAT single-modality           mRNA          0.014   -0.014    0.043           0.161
+10    GAT paired_order - XGBoost paired_order  both (paired)          0.008   -0.165    0.148           0.456

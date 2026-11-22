@@ -14,7 +14,7 @@ import os
 
 import numpy as np
 import pandas as pd
-from scipy.stats import binomtest
+from scipy.stats import binomtest, mannwhitneyu
 from sklearn.metrics import accuracy_score, f1_score
 from sklearn.model_selection import GridSearchCV, StratifiedGroupKFold
 from xgboost import XGBClassifier
@@ -82,8 +82,17 @@ def seed_scores(df):
                                     include_groups=False)
 
 
+def fast_f1(y, p):
+    cm = np.bincount(y * 3 + p, minlength=9).reshape(3, 3)
+    tp = np.diag(cm)
+    denom = cm.sum(0) + cm.sum(1)
+    return np.mean(np.where(denom > 0, 2 * tp / np.maximum(denom, 1), 0.0))
+
+
 def cluster_bootstrap(df, rng):
-    """Patient-cluster bootstrap of the across-seed mean macro-F1 (resample test patient groups)."""
+    """Patient-cluster bootstrap of the across-seed mean macro-F1 (resample test patient groups).
+    A paired example is clustered by its miRNA sample's patient group."""
+    df = df.assign(group=df.group.str.split('|').str[0])
     groups = df.loc[df.seed == df.seed.min(), 'group'].unique()
     by_seed = {s: x.reset_index(drop=True) for s, x in df.groupby('seed')}
     idx_by_group = {s: x.groupby('group').indices for s, x in by_seed.items()}
@@ -93,9 +102,32 @@ def cluster_bootstrap(df, rng):
         f = []
         for s, x in by_seed.items():
             ii = np.concatenate([idx_by_group[s][gr] for gr in pick])
-            f.append(mf1(x.y.values[ii], x.pred.values[ii]))
+            f.append(fast_f1(x.y.values[ii], x.pred.values[ii]))
         vals.append(np.mean(f))
     return np.percentile(vals, [2.5, 97.5])
+
+
+def paired_diff_bootstrap(a, b, rng):
+    """Seed-mean macro-F1 difference a - b on the same test samples, with a patient-cluster
+    bootstrap 95% CI and the bootstrap fraction of resamples with a difference <= 0."""
+    def per_seed(df):
+        return {s: x.set_index('id').sort_index() for s, x in df.groupby('seed')}
+    A, B = per_seed(a), per_seed(b)
+    ids = next(iter(A.values())).index
+    grp = next(iter(A.values())).group.str.split('|').str[0].values
+    gidx = pd.Series(np.arange(len(ids))).groupby(grp).indices
+    groups = list(gidx)
+    ya = {s: (x.y.values, x.pred.values) for s, x in A.items()}
+    yb = {s: (x.loc[ids].y.values, x.loc[ids].pred.values) for s, x in B.items()}
+    point = np.mean([fast_f1(*v) for v in ya.values()]) - np.mean([fast_f1(*v) for v in yb.values()])
+    diffs = []
+    for _ in range(N_BOOT):
+        ii = np.concatenate([gidx[g] for g in rng.choice(groups, size=len(groups), replace=True)])
+        fa = np.mean([fast_f1(y[ii], p[ii]) for y, p in ya.values()])
+        fb = np.mean([fast_f1(y[ii], p[ii]) for y, p in yb.values()])
+        diffs.append(fa - fb)
+    diffs = np.array(diffs)
+    return point, *np.percentile(diffs, [2.5, 97.5]), float((diffs <= 0).mean())
 
 
 def late_fusion(df, rng):
@@ -152,7 +184,7 @@ def main():
 
     fus = []
     for (model, cond), df in real[real.modality < 2].groupby(['model', 'condition']):
-        if cond != 'joint' and cond not in ('single_mirna', 'single_mrna'):
+        if cond not in ('joint', 'joint_nocross'):
             continue
         fus.append(late_fusion(df, rng).assign(model=model, condition=cond))
     # single-modality models: fuse the miRNA-only model with the mRNA-only model
@@ -160,7 +192,6 @@ def main():
         sm = real[(real.model == model) & real.condition.isin(['single_mirna', 'single_mrna'])]
         fus.append(late_fusion(sm, rng).assign(model=model, condition='single_mirna + single_mrna'))
     fus = pd.concat(fus)
-    fus = fus[~fus.condition.isin(['single_mirna', 'single_mrna'])]
     fsum = fus.groupby(['model', 'condition', 'pairing']).f1.agg(
         mean='mean', sd='std', p2_5=lambda x: np.percentile(x, 2.5), p97_5=lambda x: np.percentile(x, 97.5), n='size').reset_index()
     fsum.to_csv(f'{OUT}late_fusion.csv', index=False)
@@ -172,13 +203,15 @@ def main():
         real_joint = gat[gat.condition == 'joint']
         for mod in (0, 1, 'all'):
             sel = (lambda x: x) if mod == 'all' else (lambda x, m=mod: x[x.modality == m])
-            real_mean = seed_scores(sel(real_joint)).f1.mean()
+            real_runs = seed_scores(sel(real_joint)).f1.values
+            real_mean = real_runs.mean()
             null = seed_scores(sel(perm)).f1.values
             nocross = seed_scores(sel(gat[gat.condition == 'joint_nocross'])).f1.mean()
             prow.append({'modality': {0: 'miRNA', 1: 'mRNA', 'all': 'miRNA+mRNA test samples'}[mod],
                          'real_mean': real_mean, 'no_cross_edges_mean': nocross,
                          'null_mean': null.mean(), 'null_sd': null.std(ddof=1), 'n_perm': len(null),
-                         'p_empirical': (1 + (null >= real_mean).sum()) / (1 + len(null))})
+                         'p_empirical': (1 + (null >= real_mean).sum()) / (1 + len(null)),
+                         'p_mannwhitney_runs_vs_null': mannwhitneyu(real_runs, null, alternative='greater').pvalue})
         pd.DataFrame(prow).to_csv(f'{OUT}permutation_test.csv', index=False)
         print(pd.DataFrame(prow).round(3).to_string())
 
@@ -196,6 +229,28 @@ def main():
                        'gat_majority_f1': mf1(a.y, a.pred), 'xgb_majority_f1': mf1(b.y, b.pred)})
     pd.DataFrame(mc).to_csv(f'{OUT}mcnemar.csv', index=False)
     print(pd.DataFrame(mc).round(3).to_string())
+
+    def sel(model, cond, mod):
+        return real[(real.model == model) & (real.condition == cond) & (real.modality == mod)]
+    contrasts = [
+        ('GAT joint - XGBoost single-modality', ('GAT', 'joint'), ('XGBoost', {0: 'single_mirna', 1: 'single_mrna'})),
+        ('GAT joint - XGBoost joint (NaN-masked)', ('GAT', 'joint'), ('XGBoost', {0: 'joint', 1: 'joint'})),
+        ('GAT joint - GAT single-modality', ('GAT', 'joint'), ('GAT', {0: 'single_mirna', 1: 'single_mrna'})),
+        ('GAT joint - GAT joint without cross edges', ('GAT', 'joint'), ('GAT', {0: 'joint_nocross', 1: 'joint_nocross'})),
+        ('GAT joint_nocross - GAT single-modality', ('GAT', 'joint_nocross'), ('GAT', {0: 'single_mirna', 1: 'single_mrna'})),
+    ]
+    crow = []
+    for name, (ma, ca), (mb, cb) in contrasts:
+        for mod in (0, 1):
+            pt, lo, hi, frac = paired_diff_bootstrap(sel(ma, ca, mod), sel(mb, cb[mod], mod), rng)
+            crow.append({'contrast': name, 'modality': MOD_NAME[mod], 'diff_macro_f1': pt,
+                         'ci95_lo': lo, 'ci95_hi': hi, 'boot_frac_le_0': frac})
+    pt, lo, hi, frac = paired_diff_bootstrap(sel('GAT', 'paired_order', 2), sel('XGBoost', 'paired_order', 2), rng)
+    crow.append({'contrast': 'GAT paired_order - XGBoost paired_order', 'modality': MOD_NAME[2],
+                 'diff_macro_f1': pt, 'ci95_lo': lo, 'ci95_hi': hi, 'boot_frac_le_0': frac})
+    cdf = pd.DataFrame(crow)
+    cdf.to_csv(f'{OUT}contrasts.csv', index=False)
+    print(cdf.round(3).to_string())
 
 
 if __name__ == '__main__':

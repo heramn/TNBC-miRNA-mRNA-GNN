@@ -1,0 +1,6 @@
+condition,modality,gat_only_correct,xgb_only_correct,mcnemar_exact_p,gat_majority_f1,xgb_majority_f1
+joint,miRNA,2,0,0.5,0.8613644039175954,0.8091060985797828
+joint,mRNA,5,5,1.0,0.7842650103519668,0.7911433172302736
+single_mirna,miRNA,1,0,1.0,0.8361111111111112,0.8091060985797828
+single_mrna,mRNA,5,5,1.0,0.7966681111271606,0.7836879432624113
+paired_order,both (paired),3,2,1.0,0.8505291005291005,0.8419776714513557
