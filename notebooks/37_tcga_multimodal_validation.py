@@ -8,7 +8,7 @@ Why this exists:
   imputed at zero. Neither is an honest multimodal transfer. This script restricts
   to TCGA samples that have BOTH miRNA-seq and mRNA-seq, aligns each modality to
   the GSE45498 training scale (reference-batch ComBat + train z-score, reusing
-  notebooks 10 and 19 verbatim), and runs the full 118-feature models on the
+  notebooks 10 and 19 verbatim), and runs the full-feature models on the
   matched cohort.
 
   Both requested models are evaluated on the SAME matched samples:
@@ -202,7 +202,7 @@ def run_xgboost(cohort: Dict) -> List[TransferResult]:
         y_pred = model.predict(X)
         y_prob = model.predict_proba(X)
         metrics = tcga_mrna.compute_tcga_binary_metrics(y_true, y_pred, y_prob)
-        note = ('Full 118-feature XGBoost on samples with BOTH modalities present.'
+        note = ('Full-feature XGBoost on samples with BOTH modalities present.'
                 if modality == 'multimodal'
                 else 'Full XGBoost on matched samples; other modality imputed at train-mean (z=0).')
         results.append(TransferResult(

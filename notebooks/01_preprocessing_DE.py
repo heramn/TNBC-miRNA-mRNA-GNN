@@ -97,6 +97,23 @@ def parse_series_matrix(filepath):
     return sample_info
 
 
+MAPPING_CSV = 'metadata/mrna_raw_to_gsm_mapping.csv'
+
+
+def load_gsm_to_raw_column():
+    """{mRNA GSM accession: 0-based index of its column in the raw mRNA file}.
+
+    The raw mRNA file is NOT in series-matrix order (it is sorted by patient
+    number with N/T columns interleaved), so a positional pairing attaches the
+    wrong profile to most samples. The mapping is derived by
+    scripts/derive_mrna_gsm_mapping.py (Spearman of each raw column against the
+    GSM data tables); only confident, mutual-best matches are used.
+    """
+    m = pd.read_csv(MAPPING_CSV)
+    m = m[m['confident']]
+    return dict(zip(m['best_gsm'], m['raw_pos'] - 1))
+
+
 def build_sample_mapping():
     print("Building sample mapping...")
 
@@ -108,21 +125,30 @@ def build_sample_mapping():
 
     mirna_raw_cols = list(mirna_df.columns[3:])
     mrna_raw_cols = [c.strip() for c in mrna_df.columns[3:]]
+    gsm_to_raw = load_gsm_to_raw_column()
 
+    # miRNA raw columns are in series-matrix order (verified: 282/282 match their
+    # GSM). GEO has no miRNA<->mRNA patient key, so samples are paired at the GSM
+    # level by series-matrix position within identical tissue/status (the
+    # original design); the mRNA profile is now fetched from the raw column that
+    # actually belongs to that GSM. GSMs with no confident raw column are dropped.
     mirna_to_mrna = {}
-
-    for i in range(1, min(len(mirna_raw_cols), len(mrna_raw_cols)) + 1):
+    n_dropped = 0
+    for i in range(1, min(len(mirna_raw_cols), len(mRNA_meta)) + 1):
         mirna_tissue = miRNA_meta.get(i, {}).get('tissue', '')
         mirna_status = miRNA_meta.get(i, {}).get('status', '')
         mrna_tissue = mRNA_meta.get(i, {}).get('tissue', '')
         mrna_status = mRNA_meta.get(i, {}).get('status', '')
 
         if mirna_tissue == mrna_tissue and mirna_status == mrna_status:
-            mirna_sample_name = mirna_raw_cols[i - 1]
-            mrna_sample_name = mrna_raw_cols[i - 1]
-            mirna_to_mrna[mirna_sample_name] = mrna_sample_name
+            gsm = mRNA_meta.get(i, {}).get('geo', '')
+            if gsm not in gsm_to_raw:
+                n_dropped += 1
+                continue
+            mirna_to_mrna[mirna_raw_cols[i - 1]] = mrna_raw_cols[gsm_to_raw[gsm]]
 
-    print(f"Mapped {len(mirna_to_mrna)} miRNA samples to mRNA samples")
+    print(f"Mapped {len(mirna_to_mrna)} miRNA samples to mRNA samples "
+          f"({n_dropped} dropped: mRNA GSM has no confident raw column)")
 
     return mirna_to_mrna
 
@@ -246,31 +272,63 @@ def derive_patient_id(mrna_title):
     return 'P_' + t  # fallback; should not occur for GSE45498
 
 
-def build_patient_id_map():
-    """Return {miRNA_sample_name: true_patient_id} using the mRNA-title ids.
+def _raw_header_patient_id(raw_col):
+    m = re.match(r'^(?:TAS09 12 |Normal_)(\d+)', raw_col)
+    if m:
+        return 'P' + m.group(1)
+    m = re.match(r'^TAS10-15-(\d+)', raw_col)
+    return 'MET' + m.group(1) if m else 'P_' + raw_col
 
-    Aligns the two platforms positionally within matching tissue+status (the
-    same correspondence used by build_sample_mapping), then reads the patient id
-    off the mRNA-platform title via derive_patient_id. This recovers the real
-    within-patient structure (matched normal/tumor pairs, tumor replicates) that
-    the miRNA-only naming (extract_patient_ids) cannot.
+
+def build_patient_id_map():
+    """Return {miRNA_sample_name: patient group id} for patient-grouped splits.
+
+    Patient identity is only recorded on the mRNA platform, and two sources
+    disagree: the GEO title (e.g. '124N') and the raw-file column header of the
+    same profile (e.g. 'TAS09 12 108') differ for 37/40 normals. To guarantee
+    that no patient can cross train/test under either reading, ids are grouped
+    conservatively: union-find over {GEO-title id, raw-header id} of the mRNA
+    profile attached to each sample. Note that GEO gives no patient identity for
+    the miRNA profiles themselves, so the miRNA side cannot be checked.
     """
     miRNA_meta = parse_series_matrix(f'{RAW_DATA_DIR}GSE45498-GPL16231_series_matrix.txt.gz')
     mRNA_meta = parse_series_matrix(f'{RAW_DATA_DIR}GSE45498-GPL16299_series_matrix.txt.gz')
     mirna_df = pd.read_csv(f'{RAW_DATA_DIR}GSE45498_raw_data.txt.gz',
                            sep='\t', compression='gzip', nrows=1)
+    mrna_df = pd.read_csv(f'{RAW_DATA_DIR}GSE45498_mRNA_non-normalized_data.txt.gz',
+                          sep='\t', compression='gzip', nrows=1)
     mirna_raw_cols = list(mirna_df.columns[3:])
+    mrna_raw_cols = [c.strip() for c in mrna_df.columns[3:]]
+    gsm_to_raw = load_gsm_to_raw_column()
 
-    patient_map = {}
-    for i in range(1, len(mirna_raw_cols) + 1):
+    parent = {}
+
+    def find(x):
+        parent.setdefault(x, x)
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    # unions use every mRNA GSM with a confident raw column, so transitive links
+    # through profiles outside the analysed set are also respected
+    for meta in mRNA_meta.values():
+        if meta.get('geo') in gsm_to_raw:
+            tid = derive_patient_id(meta.get('title', ''))
+            rid = _raw_header_patient_id(mrna_raw_cols[gsm_to_raw[meta['geo']]])
+            parent[find(tid)] = find(rid)
+
+    title_id = {}
+    for i in range(1, min(len(mirna_raw_cols), len(mRNA_meta)) + 1):
         mi_t = miRNA_meta.get(i, {}).get('tissue', '')
         mi_s = miRNA_meta.get(i, {}).get('status', '')
         mr_t = mRNA_meta.get(i, {}).get('tissue', '')
         mr_s = mRNA_meta.get(i, {}).get('status', '')
-        if mi_t == mr_t and mi_s == mr_s:
+        gsm = mRNA_meta.get(i, {}).get('geo', '')
+        if mi_t == mr_t and mi_s == mr_s and gsm in gsm_to_raw:
             mirna_name = mirna_raw_cols[i - 1]
-            patient_map[mirna_name] = derive_patient_id(mRNA_meta.get(i, {}).get('title', ''))
-    return patient_map
+            title_id[mirna_name] = derive_patient_id(mRNA_meta.get(i, {}).get('title', ''))
+    return {k: 'G_' + find(v) for k, v in title_id.items()}
 
 
 def extract_patient_ids(sample_ids):
@@ -610,8 +668,8 @@ def main():
     # normal/tumor pairs and tumor replicates). NOT the miRNA pseudo-ids.
     patient_map = build_patient_id_map()
     n_patients = len(set(patient_map[s] for s in labels.index))
-    print(f'Recovered {n_patients} unique patients across {len(labels)} samples '
-          f'(true mRNA-title ids)')
+    print(f'Recovered {n_patients} patient groups across {len(labels)} samples '
+          f'(union of GEO-title and raw-header ids)')
 
     train_mirna_log2, test_mirna_log2, train_mrna_log2, test_mrna_log2, train_labels, test_labels = \
         patient_level_train_test_split(mirna_log2, mrna_log2, labels, patient_map)

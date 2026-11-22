@@ -1,0 +1,28 @@
+gap 0.25
+met: nA=54 nB=53 aligned=49 mean_S=0.707 null_mean=0.527±0.052 z=3.5 rank-order diag mean_S=0.473 feature rhos=[np.float64(0.52), np.float64(0.54), np.float64(0.75), np.float64(0.82), np.float64(0.55)]
+   offset (mRNA rank - miRNA rank) along alignment: [-3, -3, -3, -3, -3, -3, -3, -3, -3, -2] ... [0, 0, 0, 0, 0, 0, 0, 0, 0, -1] n distinct 4
+gap 0.5
+met: nA=54 nB=53 aligned=50 mean_S=0.682 null_mean=0.410±0.069 z=3.9 rank-order diag mean_S=0.473 feature rhos=[np.float64(0.47), np.float64(0.5), np.float64(0.7), np.float64(0.83), np.float64(0.54)]
+   offset (mRNA rank - miRNA rank) along alignment: [-3, -3, -3, -3, -3, -3, -3, -3, -3, -2] ... [0, 0, 0, 0, 0, 0, 0, 0, 0, -1] n distinct 4
+gap 1.0
+met: nA=54 nB=53 aligned=50 mean_S=0.682 null_mean=0.279±0.068 z=5.9 rank-order diag mean_S=0.473 feature rhos=[np.float64(0.47), np.float64(0.5), np.float64(0.7), np.float64(0.83), np.float64(0.54)]
+   offset (mRNA rank - miRNA rank) along alignment: [-3, -3, -3, -3, -3, -3, -3, -3, -3, -2] ... [0, 0, 0, 0, 0, 0, 0, 0, 0, -1] n distinct 4
+gap 0.25
+tum: nA=169 nB=157 aligned=150 mean_S=0.753 null_mean=0.579±0.030 z=5.7 rank-order diag mean_S=0.195 feature rhos=[np.float64(0.7), np.float64(0.74), np.float64(0.74), np.float64(0.91), np.float64(0.72)]
+   offset (mRNA rank - miRNA rank) along alignment: [0, 0, 0, -1, -1, -1, -1, -1, -1, -1] ... [-17, -17, -17, -17, -17, -17, -17, -17, -16, -12] n distinct 15
+gap 0.5
+tum: nA=169 nB=157 aligned=150 mean_S=0.753 null_mean=0.481±0.028 z=9.6 rank-order diag mean_S=0.195 feature rhos=[np.float64(0.7), np.float64(0.74), np.float64(0.74), np.float64(0.91), np.float64(0.72)]
+   offset (mRNA rank - miRNA rank) along alignment: [0, 0, 0, -1, -1, -1, -1, -1, -1, -1] ... [-17, -17, -17, -17, -17, -17, -17, -17, -16, -12] n distinct 15
+gap 1.0
+tum: nA=169 nB=157 aligned=152 mean_S=0.723 null_mean=0.353±0.035 z=10.5 rank-order diag mean_S=0.195 feature rhos=[np.float64(0.69), np.float64(0.73), np.float64(0.72), np.float64(0.85), np.float64(0.72)]
+   offset (mRNA rank - miRNA rank) along alignment: [0, 0, 0, -1, -1, -1, -1, -1, -1, -1] ... [-17, -17, -17, -17, -17, -17, -17, -17, -16, -12] n distinct 15
+gap 0.25
+nor: nA=59 nB=39 aligned=38 mean_S=0.756 null_mean=0.743±0.073 z=0.2 rank-order diag mean_S=0.125 feature rhos=[np.float64(0.74), np.float64(0.7), np.float64(0.79), np.float64(0.79), np.float64(0.58)]
+   offset (mRNA rank - miRNA rank) along alignment: [0, 0, -1, -1, -1, -2, -2, -2, -2, -2] ... [-19, -20, -20, -20, -20, -20, -20, -20, -19, -20] n distinct 11
+gap 0.5
+nor: nA=59 nB=39 aligned=38 mean_S=0.756 null_mean=0.666±0.071 z=1.3 rank-order diag mean_S=0.125 feature rhos=[np.float64(0.74), np.float64(0.7), np.float64(0.79), np.float64(0.79), np.float64(0.58)]
+   offset (mRNA rank - miRNA rank) along alignment: [0, 0, -1, -1, -1, -2, -2, -2, -2, -2] ... [-19, -20, -20, -20, -20, -20, -20, -20, -19, -20] n distinct 11
+gap 1.0
+nor: nA=59 nB=39 aligned=39 mean_S=0.702 null_mean=0.613±0.052 z=1.7 rank-order diag mean_S=0.125 feature rhos=[np.float64(0.66), np.float64(0.63), np.float64(0.71), np.float64(0.74), np.float64(0.57)]
+   offset (mRNA rank - miRNA rank) along alignment: [0, 0, -1, -1, -1, -2, -2, -2, -2, -2] ... [-20, -20, -20, -20, -20, -20, -20, -20, -20, -20] n distinct 11
+exit=0

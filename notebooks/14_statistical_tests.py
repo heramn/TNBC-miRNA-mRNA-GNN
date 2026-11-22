@@ -13,6 +13,8 @@ the raw p-values / CIs.
 
 from __future__ import annotations
 
+import os
+
 import importlib.util
 import sys
 import warnings
@@ -194,8 +196,11 @@ def ensure_predictions(patient_map: pd.Series) -> Tuple[Dict[str, pd.DataFrame],
         'Multi-network GAT': generate_gat_predictions,
         'TabNet': generate_tabnet_predictions,
     }
+    # Always regenerate from the saved models of THIS build. Re-using existing CSVs
+    # silently evaluated stale prediction files from an older build (47-sample
+    # test set) whenever they were present in results/tables.
     for model_name, path in MODEL_FILES.items():
-        if path.exists():
+        if os.environ.get('REUSE_PREDICTIONS') == '1' and path.exists():
             preds[model_name] = pd.read_csv(path)
             if 'patient_id' not in preds[model_name].columns:
                 preds[model_name]['patient_id'] = preds[model_name]['sample_id'].map(patient_map)

@@ -51,7 +51,14 @@ if str(_NOTEBOOK_DIR) not in sys.path:
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from combat.pycombat import pycombat
+# ComBat: combat==0.3.3 (epigenelabs) mis-indexes the reference batch when ref_batch
+# is given (IndexError in adjust_data), so the frozen-reference correction never ran.
+# inmoose.pycombat.pycombat_norm is the maintained successor with a working ref_batch.
+from inmoose.pycombat import pycombat_norm as _pycombat_norm
+
+
+def pycombat(data, batch, ref_batch=None):
+    return _pycombat_norm(data, list(batch), ref_batch=ref_batch)
 from sklearn.metrics import (
     accuracy_score,
     confusion_matrix,

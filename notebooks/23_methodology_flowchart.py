@@ -2,8 +2,8 @@
 """Figure 5 - analysis pipeline flowchart (matplotlib; no external Graphviz).
 
 Horizontal preprocessing chain -> the three classifiers (highlighted hub) ->
-the three downstream analyses. Numbers reflect the 118-feature, patient-clean
-build (184/51 split, 86 miRNA + 32 mRNA, 118 nodes).
+the three downstream analyses. Every number is read from data/processed and
+results/tables, so the figure always matches the current build.
 
 Run from repo root:
   python notebooks/23_methodology_flowchart.py
@@ -16,7 +16,11 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
 
+import pandas as pd
+
 FIGURES_DIR = Path('results/figures')
+PROCESSED_DIR = Path('data/processed')
+TABLES_DIR = Path('results/tables')
 
 TOP_FILL, TOP_EDGE = '#dbe8f7', '#5a9bd4'
 CLS_FILL, CLS_EDGE = '#fdf4ea', '#e2933f'
@@ -43,17 +47,50 @@ def _arrow(ax, x1, y1, x2, y2):
         mutation_scale=13, lw=1.2, color=ARROW, shrinkA=2, shrinkB=2))
 
 
+def build_numbers():
+    train = pd.read_csv(PROCESSED_DIR / 'train_labels.csv')
+    test = pd.read_csv(PROCESSED_DIR / 'test_labels.csv')
+    n_patients = pd.read_csv(PROCESSED_DIR / 'patient_ids.csv')['patient_id'].nunique()
+    n_mirna = pd.read_csv(PROCESSED_DIR / 'train_mirna.csv', index_col=0, nrows=1).shape[1]
+    n_mrna = pd.read_csv(PROCESSED_DIR / 'train_mrna.csv', index_col=0, nrows=1).shape[1]
+
+    ablation = 'not run'
+    summary_path = TABLES_DIR / 'network_ablation_graphml.csv'
+    perm_path = TABLES_DIR / 'network_ablation_graphml_permutations.csv'
+    if summary_path.exists() and perm_path.exists():
+        real = pd.read_csv(summary_path).set_index('condition').loc['real', 'macro_f1_mean']
+        perm = pd.read_csv(perm_path)
+        perm = perm[perm.macro_f1 >= 0].macro_f1
+        p = (1 + (perm >= real).sum()) / (1 + len(perm))
+        verdict = 'no significant topology effect' if p >= 0.05 else 'topology effect'
+        ablation = f'{verdict}\n(p = {p:.3f}, {len(perm)} rewirings)'
+
+    tcga = []
+    mrna_path = TABLES_DIR / 'tcga_classifier_validation.csv'
+    if mrna_path.exists():
+        sig = pd.read_csv(mrna_path).set_index('approach').loc['gene_signature_score', 'auc_normal']
+        tcga.append(f'mRNA signature AUROC {sig:.2f}')
+    mirna_path = TABLES_DIR / 'tcga_mirna_classifier_validation.csv'
+    if mirna_path.exists():
+        mir = pd.read_csv(mirna_path).set_index('approach').loc['pretrained_full_model', 'auc_normal']
+        tcga.append(f'miRNA AUROC {mir:.2f}')
+    return dict(n_samples=len(train) + len(test), n_patients=n_patients, n_train=len(train),
+                n_test=len(test), n_mirna=n_mirna, n_mrna=n_mrna, ablation=ablation,
+                tcga='\n'.join(tcga) if tcga else 'not run')
+
+
 def main():
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
+    n = build_numbers()
     fig, ax = plt.subplots(figsize=(12.6, 5.4))
     ax.set_xlim(0, 14); ax.set_ylim(0, 6); ax.axis('off')
 
     ty, tw, th = 5.05, 3.0, 1.15
     tx = [1.85, 5.28, 8.71, 12.14]
     top = [
-        ("GSE45498", "235 samples · 173 patients\nmatched miRNA + mRNA"),
-        ("Patient-grouped split", "184 train / 51 test"),
-        ("Differential expression", "118 molecules\n(86 miRNA, 32 mRNA)"),
+        ("GSE45498", f"{n['n_samples']} samples · {n['n_patients']} patient groups\ntissue-matched miRNA + mRNA"),
+        ("Patient-grouped split", f"{n['n_train']} train / {n['n_test']} test"),
+        ("Differential expression", f"{n['n_mirna'] + n['n_mrna']} molecules\n({n['n_mirna']} miRNA, {n['n_mrna']} mRNA)"),
         ("Three tissue networks", "top-150 edges / type\n(normal, primary, met)"),
     ]
     for (t, d), x in zip(top, tx):
@@ -69,9 +106,9 @@ def main():
     by, bw, bh = 0.78, 3.55, 1.2
     bx = [2.15, 7.0, 11.85]
     br = [
-        ("Network ablation", "edges add nothing\n(p = 0.426)"),
+        ("Network ablation", n['ablation']),
         ("Feature importance", "SHAP vs. attention diverge"),
-        ("TCGA-BRCA validation", "mRNA AUROC 0.88\nmiRNA AUROC 0.99"),
+        ("TCGA-BRCA validation", n['tcga']),
     ]
     for (t, d), x in zip(br, bx):
         _box(ax, x, by, bw, bh, t, d, BR_FILL, BR_EDGE)

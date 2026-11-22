@@ -1,0 +1,4 @@
+scope,n_features,top_k,jaccard_top25,n_shared_topk,shared
+all,250,25,0.064,3,MMP9; PTK7; hsa-miR-187
+miRNA,93,25,0.19,8,hsa-miR-145; hsa-miR-187; hsa-miR-1975; hsa-miR-1979; hsa-miR-210; hsa-miR-32; hsa-miR-494 (+++ See note below); hsa-miR-542-3p
+mRNA,157,25,0.111,5,CCND2; CDKN1A; MET; MMP9; PTK7

@@ -1,0 +1,17 @@
+GAT-SHAP vs XGBoost-SHAP vs GAT-attention -- top-25 ranking overlap
+
+gat_shap_vs_xgb_shap         Jaccard overall=0.220 (shared 9)  miRNA=0.282  mRNA=0.220
+gat_shap_vs_gat_attention    Jaccard overall=0.064 (shared 3)  miRNA=0.220  mRNA=0.042
+xgb_shap_vs_gat_attention    Jaccard overall=0.064 (shared 3)  miRNA=0.190  mRNA=0.111
+
+Top-10 GAT-SHAP features:
+   1. hsa-miR-542-3p     (miRNA)  mean|SHAP|=0.01598 +/- 0.00484
+   2. hsa-miR-579 (+++ See note below) (miRNA)  mean|SHAP|=0.01360 +/- 0.00341
+   3. hsa-miR-199a-5p    (miRNA)  mean|SHAP|=0.01134 +/- 0.00289
+   4. MMP3               (mRNA)  mean|SHAP|=0.01081 +/- 0.00285
+   5. hsa-miR-10b        (miRNA)  mean|SHAP|=0.00989 +/- 0.00275
+   6. CDKN2C             (mRNA)  mean|SHAP|=0.00961 +/- 0.00292
+   7. THPO               (mRNA)  mean|SHAP|=0.00910 +/- 0.00181
+   8. PTK7               (mRNA)  mean|SHAP|=0.00834 +/- 0.00219
+   9. RET                (mRNA)  mean|SHAP|=0.00790 +/- 0.00193
+  10. hsa-miR-29c        (miRNA)  mean|SHAP|=0.00787 +/- 0.00199

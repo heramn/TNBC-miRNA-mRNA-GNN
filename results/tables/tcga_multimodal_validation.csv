@@ -1,0 +1,7 @@
+model,modality,accuracy,macro_f1,auc_normal,auc_primary,f1_normal,f1_primary,n_normal,n_tumor,n_features_used,n_metastatic_predictions,cm_normal_normal,cm_normal_primary,cm_primary_normal,cm_primary_primary,notes
+xgboost,multimodal,0.8401486988847584,0.8120562190267284,0.9940559440559441,0.994055944055944,0.7393939393939394,0.8847184986595175,104,165,235,10,61,43,0,165,Full 118-feature XGBoost on samples with BOTH modalities present.
+xgboost,mrna_only,0.6133828996282528,0.38018433179723504,0.9942307692307693,0.9942307692307693,0.0,0.7603686635944701,104,165,150,0,0,104,0,165,Full XGBoost on matched samples; other modality imputed at train-mean (z=0).
+xgboost,mirna_only,0.6133828996282528,0.38018433179723504,0.9661421911421911,0.9661421911421912,0.0,0.7603686635944701,104,165,85,10,0,104,0,165,Full XGBoost on matched samples; other modality imputed at train-mean (z=0).
+gat,multimodal,0.9739776951672863,0.9722013080000591,0.9983682983682984,0.9983682983682984,0.9651741293532339,0.9792284866468842,104,165,235,27,97,7,0,165,Multi-network GAT on samples with BOTH modalities present (same 3 graphs).
+gat,mrna_only,0.9925650557620818,0.99213358287519,1.0,1.0,0.9902912621359223,0.9939759036144579,104,165,150,5,102,2,0,165,Multi-network GAT on matched samples; other modality imputed at train-mean (z=0).
+gat,mirna_only,0.9033457249070632,0.8931757086999023,0.9655011655011655,0.9655011655011655,0.8602150537634409,0.9261363636363636,104,165,85,70,80,24,2,163,Multi-network GAT on matched samples; other modality imputed at train-mean (z=0).

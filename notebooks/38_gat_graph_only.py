@@ -15,7 +15,7 @@ Interpretation:
     through the graph, consistent with the edge ablation (the specific edges do
     not matter, but expression-as-node-features does).
 
-Run on a GPU runtime, on the 118 build. ~1 hour for 20 seeds.
+Run on a GPU runtime, on the current build (scripts/verify_build.py). ~1 hour for 20 seeds.
 """
 from __future__ import annotations
 
@@ -110,7 +110,7 @@ def main() -> None:
     ds, train_ids, test_ids, ynum = gat.build_dataset(
         x_all=x_all, y_all=y_all, train_ids=train_ids, test_ids=test_ids, nodes=nodes)
     ds = {s: dd.to(DEVICE) for s, dd in ds.items()}
-    assert len(nodes) == 118, f'expected the 118 build, got {len(nodes)} nodes'
+    print(f'graph-only GAT on {len(nodes)} feature nodes')
 
     bp = best_params()
     print('best_params:', bp)

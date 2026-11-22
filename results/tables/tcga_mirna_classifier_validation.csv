@@ -1,4 +1,4 @@
-approach,n_tcga_normal,n_tcga_tumor,n_overlap_mirnas,accuracy,macro_f1,f1_normal,f1_primary,auc_normal,auc_primary,cm_normal_normal,cm_normal_primary,cm_primary_normal,cm_primary_primary,notes
-pretrained_full_model,104,165,82,0.788104,0.737615,0.622517,0.852713,0.989161,0.989161,47,57,0,165,Full multi-modal model; TCGA miRNA via ComBat+log2+z-score; missing mRNA imputed at 0.
-overlap_mirna_retrain,104,165,82,0.773234,0.714512,0.585034,0.843990,0.984674,0.984674,43,61,0,165,Retrained on TCGA-overlapping miRNAs only; same HPs as full model.
-top10_mirna_retrain,104,165,10,0.780669,0.726178,0.604027,0.848329,0.917133,0.917133,45,59,0,165,Top 10 miRNAs by feature_importances_ (TCGA overlap).
+approach,accuracy,macro_f1,f1_normal,f1_primary,auc_normal,auc_primary,n_tcga_normal,n_tcga_tumor,n_overlap_mirnas,n_metastatic_predictions,cm_normal_normal,cm_normal_primary,cm_primary_normal,cm_primary_primary,notes
+pretrained_full_model,0.6133828996282528,0.38018433179723504,0.0,0.7603686635944701,0.9661421911421911,0.9661421911421912,104,165,85,10,0,104,0,165,Full multi-modal model; TCGA miRNA via ComBat+log2+z-score; missing mRNA imputed at 0. GDC miRNA-seq download required.
+overlap_mirna_retrain,0.7434944237918215,0.6653323957375452,0.5035971223021583,0.8270676691729323,0.9836829836829837,0.9836829836829837,104,165,85,12,35,69,0,165,Retrained on TCGA-overlapping miRNAs only; same HPs as full model.
+top10_mirna_retrain,0.7843866171003717,0.7340809926370331,0.618421052631579,0.8497409326424871,0.9520396270396271,0.952039627039627,104,165,10,12,47,57,1,164,Top 10 miRNAs by feature_importances_ (TCGA overlap).

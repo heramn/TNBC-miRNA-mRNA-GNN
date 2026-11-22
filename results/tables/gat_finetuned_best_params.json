@@ -1,8 +1,8 @@
 {
-  "learning_rate": 0.0005915286378828813,
-  "hidden_size": 64,
-  "num_heads": 4,
-  "dropout": 0.09359223625288136,
-  "weight_decay": 0.0001595097458497661,
-  "num_layers": 1
+  "learning_rate": 0.003566987786578496,
+  "hidden_size": 16,
+  "num_heads": 8,
+  "dropout": 0.12374026772188323,
+  "weight_decay": 1.0742812094830913e-05,
+  "num_layers": 3
 }
