@@ -1,0 +1,101 @@
+{
+  "cohort": {
+    "tnbc_patients_ihc": 142,
+    "tnbc_tumours_both_modalities": 102,
+    "tnbc_tumours_with_absolute_purity": 94,
+    "tnbc_tumours_with_estimate_purity": 102,
+    "nontnbc_primary_tumours_both_modalities": 645,
+    "normals_both_modalities": 76,
+    "absolute_purity_median_iqr": [
+      0.495,
+      0.38,
+      0.7175
+    ],
+    "spearman_absolute_vs_estimate_purity": 0.5384883054017671
+  },
+  "mapping": {
+    "geo_mirna_probes": 654,
+    "probes_with_mimat": 654,
+    "probes_with_mirbase_v22_name": 622,
+    "merged_probes": 8,
+    "merged_probe_handling": "TCGA: sum of member arms on the linear RPM scale; miRDB: union of member targets (max score)",
+    "probes_on_tcga_after_filter": 267,
+    "panel_mrna": 236,
+    "mrna_on_tcga": 236,
+    "mrna_recovered_by_hgnc_alias": [
+      [
+        "CDC2",
+        "CDK1"
+      ],
+      [
+        "PCTK1",
+        "CDK16"
+      ]
+    ],
+    "mrna_unmapped": []
+  },
+  "primary_edges": {
+    "pairs_tested": 63012,
+    "negative_q_lt_0.05": 1434,
+    "positive_q_lt_0.05": 1875
+  },
+  "sensitivity_edges": {
+    "estimate_purity_negative_q_lt_0.05": 2167,
+    "normal_negative_q_lt_0.05": 4300,
+    "overlap_top500_absolute_vs_estimate": 289
+  },
+  "reference_190_build": {
+    "de_mirna": 93,
+    "de_mrna": 157,
+    "mappable_mirna": 74,
+    "mappable_mrna": 157,
+    "unmappable_de_mirna": [
+      "hsa-miR-18b",
+      "hsa-miR-216a",
+      "hsa-miR-490-3p",
+      "hsa-miR-494 (+++ See note below)",
+      "hsa-miR-520c-3p",
+      "hsa-miR-548g",
+      "hsa-miR-579 (+++ See note below)",
+      "hsa-miR-663b",
+      "hsa-miR-934",
+      "hsa-miR-1246",
+      "hsa-miR-1274a",
+      "hsa-miR-1290",
+      "hsa-miR-1299",
+      "hsa-miR-1305",
+      "hsa-miR-1308",
+      "hsa-miR-1975",
+      "hsa-miR-1978",
+      "hsa-miR-1979",
+      "hsa-miR-2117"
+    ],
+    "unmappable_de_mrna": [],
+    "mirdb_pairs_full_250": 419,
+    "mirdb_pairs_mappable_subset_K": 394,
+    "tcga_sig_negative_pairs_in_subset": 456,
+    "tcga_topK_min_abs_r": 0.31756213224948554,
+    "tcga_topK_overlap_with_mirdb": 35
+  },
+  "input_sha256": {
+    "HiSeqV2.gz": "263bf67245cc4b9062676583c0ff0306f08471a26aafd5504037e1da22133746",
+    "miRNA_HiSeq_gene.gz": "9f664b672306073532d96251fcfafa82c112665e3307744f45833a1e94a9f6c1",
+    "BRCA_clinicalMatrix": "39eb3be0fb86e6a577bd2cc01502a7fa5a271e1e1cba294e9dc644ad99580d7f",
+    "TCGA_mastercalls.abs_tables_JSedit.fixed.txt": "f430a975433d82e0098d7405619d4f12a0c765fcd97e7d63cc9b1de7f2d763cd",
+    "breast_RNAseqV2.txt": "df869da7b5e7b548cba20a710a2224473f11db8f304992e96a93ceeb8d2ad1b7",
+    "mature.fa": "52d69eeb3c23c5ed0f66c8c9f24e1ad2cd94cc34e72e4fc376c0dd438d2779ff",
+    "GPL16231.txt": "233ca4e0a5d0c391b4ed796507858309ca83b46a40de3e5f3206c04eaab3a950",
+    "hgnc_complete_set.txt": "6df77ac3cbaeb86a6dce5e17d851ebb27b6b3cdcd2471a211a3d8464f00c54c4",
+    "miRDB_v6.0_prediction_result.txt.gz": "446636d2182212f44ff91623f1429f7922f9575b82226962a6213d592a7e109d"
+  },
+  "output_sha256": {
+    "GPL16231_annotation.tsv": "c867e5f576892dcf803e2f29298b19c58d02feae2dfbac4e5103b6f1ea6f0560",
+    "mirna_probe_map.csv": "640d04d829cd662b735dd43968f6eb60cd43d6261b66111ee211498e377d73c4",
+    "mrna_symbol_map.csv": "9102a9617d89f5e117701783b398fdb9b3c6393ea62012626038c1e6fb299c57",
+    "tcga_mappable_nodes.csv": "c0657424b4ac9316365d055ee9bf94adb058199b9752dfec07f1e30e77fb95d7",
+    "tcga_normal_edges_ranked_sensitivity.csv": "5cca6d750eadad0f4bd8b1ed7f4eac42eddf156ac56a67927e959ac314cac672",
+    "tcga_tumor_edges_ranked.csv": "6129e989c5467e7429e42bb9be7c89d6e77f48307beac98afb39c480f6e53773",
+    "tcga_tumor_edges_ranked_estimate_sensitivity.csv": "969ca6eb02727cedcd744c2c0e586dd62fef0f4c2560d99c58e0203f7540eaf2",
+    "tcga_tumor_pairs_all_absolute.csv.gz": "85d02e2485c1f0aa99cadd4a397f8ba620a0e5f087f79869896f0b774d6527fe"
+  }
+}
