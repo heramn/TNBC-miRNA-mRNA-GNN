@@ -1,0 +1,22 @@
+{
+ "title": "Pairing-free multi-omic graph attention network for GSE45498 TNBC tissue state: final study code, frozen edge lists and results",
+ "upload_type": "software",
+ "description": "Code, frozen configuration (git tags tcga-edges-frozen-v1 and study-frozen-v1), frozen TCGA-derived edge list, all out-of-fold predictions, tables and figures of the final study. Raw GEO GSE45498 files as deposited by Cascione et al. are included; miRDB v6.0, TCGA (UCSC Xena), ABSOLUTE purity, ESTIMATE scores, miRBase, HGNC and miRTarBase 9.0 must be downloaded from their sources (sha256 in study/frozen/tcga_edges_info.json).",
+ "creators": [
+  {
+   "name": "Nagabhairu, Heram"
+  }
+ ],
+ "access_right": "open",
+ "license": "MIT",
+ "keywords": [
+  "TNBC",
+  "miRNA",
+  "mRNA",
+  "graph neural network",
+  "multi-omics",
+  "GSE45498",
+  "reproducibility"
+ ],
+ "notes": "Prepared, not published. Check creators, license and description before any deposit."
+}

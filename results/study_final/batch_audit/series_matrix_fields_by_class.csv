@@ -1,0 +1,62 @@
+platform,field,value,class,n
+GPL16231,submission_date,Nov 01 2012,primary,169
+GPL16231,submission_date,Nov 01 2012,normal,59
+GPL16231,submission_date,Nov 01 2012,ln_metastasis,54
+GPL16231,last_update_date,Feb 01 2021,primary,94
+GPL16231,last_update_date,Apr 19 2013,primary,75
+GPL16231,last_update_date,Feb 01 2021,normal,59
+GPL16231,last_update_date,Feb 01 2021,ln_metastasis,54
+GPL16231,source_name_ch1,Breast tissue,primary,169
+GPL16231,source_name_ch1,Breast tissue,normal,59
+GPL16231,source_name_ch1,Lymph node,ln_metastasis,54
+GPL16231,tissue,Breast,primary,169
+GPL16231,tissue,Breast,normal,59
+GPL16231,tissue,Lymph Node,ln_metastasis,54
+GPL16231,extract_protocol_ch1,RNA was isolated from FFPE tissue using Recover ALL kit (Ambion),primary,169
+GPL16231,extract_protocol_ch1,RNA was isolated from FFPE tissue using Recover ALL kit (Ambion),normal,59
+GPL16231,extract_protocol_ch1,RNA was isolated from FFPE tissue using Recover ALL kit (Ambion),ln_metastasis,54
+GPL16231,label_protocol_ch1,"RNA was not labeled; instead, RNA (33 ng/ul) was pre-processed following the NanoString manufacturer's protocol by the O",primary,169
+GPL16231,label_protocol_ch1,"RNA was not labeled; instead, RNA (33 ng/ul) was pre-processed following the NanoString manufacturer's protocol by the O",normal,59
+GPL16231,label_protocol_ch1,"RNA was not labeled; instead, RNA (33 ng/ul) was pre-processed following the NanoString manufacturer's protocol by the O",ln_metastasis,54
+GPL16231,data_processing,Data were collected as NanoString RCC files and provided as an Excel spreadsheet. Raw values are the number of copies of,primary,169
+GPL16231,data_processing,Data were collected as NanoString RCC files and provided as an Excel spreadsheet. Raw values are the number of copies of,normal,59
+GPL16231,data_processing,Data were collected as NanoString RCC files and provided as an Excel spreadsheet. Raw values are the number of copies of,ln_metastasis,54
+GPL16231,hyb_protocol,RNA was hybridized to capture probes and detection probes using the NanoString nCounter system according to the manufact,primary,169
+GPL16231,hyb_protocol,RNA was hybridized to capture probes and detection probes using the NanoString nCounter system according to the manufact,normal,59
+GPL16231,hyb_protocol,RNA was hybridized to capture probes and detection probes using the NanoString nCounter system according to the manufact,ln_metastasis,54
+GPL16231,scan_protocol,Scanning was conducted using the NanoString confocal microscope scanner/Digital Analyzer according to manufacturer's ins,primary,169
+GPL16231,scan_protocol,Scanning was conducted using the NanoString confocal microscope scanner/Digital Analyzer according to manufacturer's ins,normal,59
+GPL16231,scan_protocol,Scanning was conducted using the NanoString confocal microscope scanner/Digital Analyzer according to manufacturer's ins,ln_metastasis,54
+GPL16231,contact_name,"Luciano,,Cascione",primary,169
+GPL16231,contact_name,"Luciano,,Cascione",normal,59
+GPL16231,contact_name,"Luciano,,Cascione",ln_metastasis,54
+GPL16299,submission_date,Nov 19 2012,primary,157
+GPL16299,submission_date,Nov 19 2012,ln_metastasis,53
+GPL16299,submission_date,Nov 19 2012,normal,39
+GPL16299,last_update_date,Apr 19 2013,primary,157
+GPL16299,last_update_date,Apr 19 2013,ln_metastasis,53
+GPL16299,last_update_date,Apr 19 2013,normal,39
+GPL16299,source_name_ch1,Breast tissue,primary,157
+GPL16299,source_name_ch1,Lymph node,ln_metastasis,53
+GPL16299,source_name_ch1,Breast tissue,normal,39
+GPL16299,tissue,Breast,primary,157
+GPL16299,tissue,Lymph Node,ln_metastasis,53
+GPL16299,tissue,Breast,normal,39
+GPL16299,extract_protocol_ch1,RNA was isolated from FFPE tissue using Recover ALL kit (Ambion),primary,157
+GPL16299,extract_protocol_ch1,RNA was isolated from FFPE tissue using Recover ALL kit (Ambion),ln_metastasis,53
+GPL16299,extract_protocol_ch1,RNA was isolated from FFPE tissue using Recover ALL kit (Ambion),normal,39
+GPL16299,label_protocol_ch1,"RNA was not labeled; instead, RNA (33 ng/ul) was pre-processed following the NanoString manufacturer's protocol by the O",primary,157
+GPL16299,label_protocol_ch1,"RNA was not labeled; instead, RNA (33 ng/ul) was pre-processed following the NanoString manufacturer's protocol by the O",ln_metastasis,53
+GPL16299,label_protocol_ch1,"RNA was not labeled; instead, RNA (33 ng/ul) was pre-processed following the NanoString manufacturer's protocol by the O",normal,39
+GPL16299,data_processing,Raw values are the number of copies of a feature-specific molecular barcode that is attached to a detection probe and co,primary,157
+GPL16299,data_processing,Raw values are the number of copies of a feature-specific molecular barcode that is attached to a detection probe and co,ln_metastasis,53
+GPL16299,data_processing,Raw values are the number of copies of a feature-specific molecular barcode that is attached to a detection probe and co,normal,39
+GPL16299,hyb_protocol,RNA was hybridized to capture probes and detection probes using the NanoString nCounter system according to the manufact,primary,157
+GPL16299,hyb_protocol,RNA was hybridized to capture probes and detection probes using the NanoString nCounter system according to the manufact,ln_metastasis,53
+GPL16299,hyb_protocol,RNA was hybridized to capture probes and detection probes using the NanoString nCounter system according to the manufact,normal,39
+GPL16299,scan_protocol,Scanning was conducted using the NanoString confocal microscope scanner/Digital Analyzer according to manufacturer's ins,primary,157
+GPL16299,scan_protocol,Scanning was conducted using the NanoString confocal microscope scanner/Digital Analyzer according to manufacturer's ins,ln_metastasis,53
+GPL16299,scan_protocol,Scanning was conducted using the NanoString confocal microscope scanner/Digital Analyzer according to manufacturer's ins,normal,39
+GPL16299,contact_name,"Luciano,,Cascione",primary,157
+GPL16299,contact_name,"Luciano,,Cascione",ln_metastasis,53
+GPL16299,contact_name,"Luciano,,Cascione",normal,39

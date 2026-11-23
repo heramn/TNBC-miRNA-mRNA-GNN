@@ -1,0 +1,8 @@
+modality,prefix,cls,n
+0,Mets,ln_metastasis,54
+0,Normal,normal,59
+0,Tumor,primary,169
+1,Normal,normal,1
+1,TAS09 12,normal,38
+1,TAS09 12,primary,157
+1,TAS10-15,ln_metastasis,53

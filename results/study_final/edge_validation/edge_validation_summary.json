@@ -1,0 +1,221 @@
+{
+ "reference_subset": {
+  "mirna": 74,
+  "mrna": 157,
+  "K": 394
+ },
+ "split_half": {
+  "replication_topK": [
+   0.4044670050761422,
+   0.32220812182741115,
+   0.49118020304568527
+  ],
+  "replication_random": [
+   0.13098984771573602,
+   0.09378172588832487,
+   0.1727157360406091
+  ],
+  "sign_agree_topK": [
+   0.8766243654822337,
+   0.8223350253807107,
+   0.9227791878172588
+  ],
+  "sign_agree_random": [
+   0.5303553299492385,
+   0.4809010152284264,
+   0.5801395939086293
+  ],
+  "frac_splits_topK_gt_random": 1.0
+ },
+ "nontnbc_sign_agreement": {
+  "n_tumours": 625,
+  "pairs": 394,
+  "frac_negative": 0.9619289340101523,
+  "frac_negative_p05": 0.8274111675126904,
+  "random_frac_negative_mean_95": [
+   0.4925406091370559,
+   0.44416243654822335,
+   0.5456852791878173
+  ],
+  "empirical_p": 0.000999000999000999
+ },
+ "prior_enrichment": [
+  {
+   "scope": "universe",
+   "prior": "mirdb",
+   "edges": "frozen_q05_negative",
+   "edges_in_prior": 68,
+   "n_edges": 1434,
+   "prior_pairs": 1466,
+   "pairs": 63012,
+   "odds_ratio": 2.1429065156875438,
+   "fisher_p_greater": 4.0405766099096684e-08
+  },
+  {
+   "scope": "universe",
+   "prior": "mirtarbase_strong",
+   "edges": "frozen_q05_negative",
+   "edges_in_prior": 48,
+   "n_edges": 1434,
+   "prior_pairs": 1449,
+   "pairs": 63012,
+   "odds_ratio": 1.4875460014646311,
+   "fisher_p_greater": 0.0069523125062823125
+  },
+  {
+   "scope": "universe",
+   "prior": "mirtarbase_any",
+   "edges": "frozen_q05_negative",
+   "edges_in_prior": 73,
+   "n_edges": 1434,
+   "prior_pairs": 2806,
+   "pairs": 63012,
+   "odds_ratio": 1.1548741764264185,
+   "fisher_p_greater": 0.13236204138674737
+  },
+  {
+   "scope": "universe",
+   "prior": "mirdb",
+   "edges": "partial_r_prior_vs_rest",
+   "edges_in_prior": 1466,
+   "mean_r_prior": -0.020769547571964527,
+   "mean_r_rest": -0.002779589423381861,
+   "frac_sig_negative_prior": 0.04638472032742155,
+   "frac_sig_negative_rest": 0.022194781139310435,
+   "mannwhitney_p_prior_more_negative": 0.0001833458427559474
+  },
+  {
+   "scope": "universe",
+   "prior": "mirtarbase_strong",
+   "edges": "partial_r_prior_vs_rest",
+   "edges_in_prior": 1449,
+   "mean_r_prior": -0.009086345042098,
+   "mean_r_rest": -0.0030595431253506167,
+   "frac_sig_negative_prior": 0.033126293995859216,
+   "frac_sig_negative_rest": 0.022513522732810293,
+   "mannwhitney_p_prior_more_negative": 0.11280810215554771
+  },
+  {
+   "scope": "universe",
+   "prior": "mirtarbase_any",
+   "edges": "partial_r_prior_vs_rest",
+   "edges_in_prior": 2806,
+   "mean_r_prior": 0.0028793869172843906,
+   "mean_r_rest": -0.0034813860260083716,
+   "frac_sig_negative_prior": 0.02601568068424804,
+   "frac_sig_negative_rest": 0.022605720360097,
+   "mannwhitney_p_prior_more_negative": 0.9857225492884675
+  },
+  {
+   "scope": "reference_subset",
+   "prior": "mirdb",
+   "edges": "frozen_q05_negative",
+   "edges_in_prior": 37,
+   "n_edges": 456,
+   "prior_pairs": 394,
+   "pairs": 11618,
+   "odds_ratio": 2.6726633374113367,
+   "fisher_p_greater": 7.403294947042775e-07
+  },
+  {
+   "scope": "reference_subset",
+   "prior": "mirdb",
+   "edges": "topK_reference",
+   "edges_in_prior": 35,
+   "n_edges": 394,
+   "prior_pairs": 394,
+   "pairs": 11618,
+   "odds_ratio": 2.950590079220366,
+   "fisher_p_greater": 1.755274271027617e-07
+  },
+  {
+   "scope": "reference_subset",
+   "prior": "mirtarbase_strong",
+   "edges": "frozen_q05_negative",
+   "edges_in_prior": 27,
+   "n_edges": 456,
+   "prior_pairs": 446,
+   "pairs": 11618,
+   "odds_ratio": 1.6136822604603034,
+   "fisher_p_greater": 0.016878858545072747
+  },
+  {
+   "scope": "reference_subset",
+   "prior": "mirtarbase_strong",
+   "edges": "topK_reference",
+   "edges_in_prior": 23,
+   "n_edges": 394,
+   "prior_pairs": 446,
+   "pairs": 11618,
+   "odds_ratio": 1.5829876444087605,
+   "fisher_p_greater": 0.030119896633001422
+  },
+  {
+   "scope": "reference_subset",
+   "prior": "mirtarbase_any",
+   "edges": "frozen_q05_negative",
+   "edges_in_prior": 38,
+   "n_edges": 456,
+   "prior_pairs": 787,
+   "pairs": 11618,
+   "odds_ratio": 1.263866974147348,
+   "fisher_p_greater": 0.10665562390304965
+  },
+  {
+   "scope": "reference_subset",
+   "prior": "mirtarbase_any",
+   "edges": "topK_reference",
+   "edges_in_prior": 34,
+   "n_edges": 394,
+   "prior_pairs": 787,
+   "pairs": 11618,
+   "odds_ratio": 1.3133171019625203,
+   "fisher_p_greater": 0.08573148235864705
+  },
+  {
+   "scope": "reference_subset",
+   "prior": "mirdb",
+   "edges": "partial_r_prior_vs_rest",
+   "edges_in_prior": 394,
+   "mean_r_prior": -0.05938534572411167,
+   "mean_r_rest": -0.013125883870536353,
+   "frac_sig_negative_prior": 0.09390862944162437,
+   "frac_sig_negative_rest": 0.03733071988595866,
+   "mannwhitney_p_prior_more_negative": 1.4272536691609823e-06
+  },
+  {
+   "scope": "reference_subset",
+   "prior": "mirtarbase_strong",
+   "edges": "partial_r_prior_vs_rest",
+   "edges_in_prior": 446,
+   "mean_r_prior": -0.013208872134529145,
+   "mean_r_rest": -0.014753991210723235,
+   "frac_sig_negative_prior": 0.06053811659192825,
+   "frac_sig_negative_rest": 0.038399570354457575,
+   "mannwhitney_p_prior_more_negative": 0.6822247726538462
+  },
+  {
+   "scope": "reference_subset",
+   "prior": "mirtarbase_any",
+   "edges": "partial_r_prior_vs_rest",
+   "edges_in_prior": 787,
+   "mean_r_prior": -0.009251496940279543,
+   "mean_r_rest": -0.015090187303683871,
+   "frac_sig_negative_prior": 0.048284625158831,
+   "frac_sig_negative_rest": 0.03859292770750623,
+   "mannwhitney_p_prior_more_negative": 0.8330944506847394
+  }
+ ],
+ "sensitivity_overlap": {
+  "estimate": {
+   "pairs": 2167,
+   "overlap_with_primary": 1152,
+   "jaccard": 0.4703960800326664
+  },
+  "normal": {
+   "pairs": 4300,
+   "overlap_with_primary": 169,
+   "jaccard": 0.03036837376460018
+  }
+ }
+}
