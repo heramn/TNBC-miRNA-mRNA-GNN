@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Phase-3 driver for the Kaggle notebooks kaggle/phase3a.ipynb and kaggle/phase3b.ipynb.
+"""Phase-3 driver for the Kaggle notebooks kaggle/phase3r.ipynb (retry of phase3a.ipynb on branch kaggle-phase3)
+and kaggle/phase3b.ipynb.
 
 POST-HOC, ADDED AFTER THE FROZEN STUDY. Nothing in study/ is changed; the frozen code is imported. The
 settings and decision rules are in kaggle/phase3_config.py, committed before any phase-3 study fit ran.
@@ -7,6 +8,8 @@ settings and decision rules are in kaggle/phase3_config.py, committed before any
   A  planted-signal positive control: frozen GAT arms (joint_mirdb / joint_nocross / joint_rewired, paper
      configuration) and routed baselines on a semi-synthetic task whose label can only be read by grouping
      features along miRDB edges, at several strengths including 0; outer folds of repeat 0
+     (retry: redesigned so the label depends on which features form each miRDB set; a design gate checks that
+     graph-free models stay near chance before any edge-using GAT fit)
   B  edge-forcing variants (kaggle/phase3_model.py)
        select   planted task scored on the INNER-VALIDATION split + real-data inner-validation loss;
                 writes selected_variant.json (never touches outer test folds)
@@ -16,6 +19,7 @@ settings and decision rules are in kaggle/phase3_config.py, committed before any
      restored from an attached phase-2 output or recomputed)
 
   python kaggle/phase3.py data | restore | plan | check-plant
+  python kaggle/phase3.py run --part gate && python kaggle/phase3.py gate   # retry: design gate, before part A/B
   python kaggle/phase3.py run --part A|B|C|eval [--smoke] [--workers 4] [--deadline EPOCH]
   python kaggle/phase3.py baselines --part A|C [--workers 4]
   python kaggle/phase3.py select                 # after run --part B
@@ -103,17 +107,20 @@ def restore():
     print(f'restored {n} files from attached inputs into {RUNS}')
 
 
-# ------------------------------------------------------------------ A: planted task
+# ------------------------------------------------------------------ A: planted task (edge identity)
 def hubs(md, hub_col, member_col):
-    """Two hubs with the most members whose member sets, made disjoint, keep >= PC3_MIN_SET each."""
+    """PC3_N_HUBS hubs, taken greedily from the largest down: a hub is kept if, after removing every member
+    shared with another kept hub, each kept hub still has >= PC3_MIN_SET members. Sets are then disjoint."""
     sets = md.groupby(hub_col)[member_col].apply(lambda s: set(s))
     order = sorted(sets.index, key=lambda h: (-len(sets[h]), h))
-    for i, h1 in enumerate(order):
-        for h2 in order[i + 1:]:
-            a, b = sets[h1] - sets[h2], sets[h2] - sets[h1]
-            if len(a) >= K.PC3_MIN_SET and len(b) >= K.PC3_MIN_SET:
-                return [(h1, sorted(a)), (h2, sorted(b))]
-    raise RuntimeError('no two disjoint hubs with enough members')
+    excl = lambda hs: [(h, sorted(sets[h] - set().union(*(sets[o] for o in hs if o != h)))) for h in hs]
+    picked = []
+    for h in order:
+        if all(len(m) >= K.PC3_MIN_SET for _, m in excl(picked + [h])):
+            picked.append(h)
+        if len(picked) == K.PC3_N_HUBS:
+            return excl(picked)
+    raise RuntimeError(f'only {len(picked)} disjoint hubs with >= {K.PC3_MIN_SET} members')
 
 
 def fold_hubs(fd):
@@ -121,37 +128,47 @@ def fold_hubs(fd):
     import prep as P
     mi, mr = fd['nodes']['subset']
     md = E.pairs_in(P.mirdb(), mi, mr)
-    return {1: hubs(md, 'probe', 'gene'),      # mRNA examples: target sets of two hub miRNAs
-            0: hubs(md, 'gene', 'probe')}      # miRNA examples: regulator sets of two hub genes
+    return {1: hubs(md, 'probe', 'gene'),      # mRNA examples: target sets of hub miRNAs
+            0: hubs(md, 'gene', 'probe')}      # miRNA examples: regulator sets of hub genes
+
+
+PATTERNS = {0: (1.0, 1.0), 1: (-1.0, -1.0), 2: (1.0, -1.0)}   # class -> signs of (u1*u2, u3*u4)
+
+
+def set_means(Zm, ids, hb):
+    return np.column_stack([Zm.loc[ids, mem].values.mean(1) for _, mem in hb])
 
 
 def plant(fd, delta):
-    """Permuted labels + XOR-of-set-means signal along miRDB edges (see phase3_config.py). The labels and
-    signs do not depend on delta, so every strength uses the same labels."""
+    """Real labels permuted within modality, then a latent signal along miRDB edges: per example, four latent
+    values u_i ~ N(0, 1), one per hub set, are added (times delta * PC3_AMPLITUDE) to every member of hub set i. The class
+    fixes only the signs of u1*u2 and u3*u4 (class 0: +,+; class 1: -,-; class 2: +,-); each pair's common
+    sign and the magnitudes are random. The labels and u do not depend on delta."""
     t = fd['samples']
     rng = np.random.default_rng(K.PC3_SEED + 100 * fd['repeat'] + fd['fold'])
     y = t.y.copy()
-    for m in (0, 1):
-        ids = t.index[t.modality == m]
-        y[ids] = rng.permutation(t.loc[ids, 'y'].values)
     hb = fold_hubs(fd)
     Z = {m: fd['Z'][m].copy() for m in (0, 1)}
     for m in (0, 1):
         ids = list(t.index[t.modality == m])
-        a = rng.choice([-1.0, 1.0], len(ids))
-        cls = y[ids].values
-        s1 = np.where(cls == 2, 0.0, a)
-        s2 = np.where(cls == 0, a, np.where(cls == 1, -a, 0.0))
+        y[ids] = rng.permutation(t.loc[ids, 'y'].values)
+        mag = np.abs(rng.standard_normal((len(ids), 4)))
+        lead = rng.choice([-1.0, 1.0], (len(ids), 2))
+        pat = np.array([PATTERNS[c] for c in y[ids].values])
+        u = mag * np.column_stack([lead[:, 0], lead[:, 0] * pat[:, 0], lead[:, 1], lead[:, 1] * pat[:, 1]])
         if delta:
-            for (_, members), s in zip(hb[m], (s1, s2)):
-                Z[m].loc[ids, members] = Z[m].loc[ids, members].values + (delta * s)[:, None].astype(np.float32)
-    extra = {'delta': delta, 'hubs': {MODN[m]: [[h, len(mem)] for h, mem in hb[m]] for m in (0, 1)}}
+            for i, (_, mem) in enumerate(hb[m]):
+                Z[m].loc[ids, mem] = Z[m].loc[ids, mem].values + (delta * K.PC3_AMPLITUDE * u[:, [i]]).astype(np.float32)
+    extra = {'delta': delta, 'design': 'edge_identity_latent',
+             'hubs': {MODN[m]: [[h, len(mem)] for h, mem in hb[m]] for m in (0, 1)}}
     return y, Z, extra
 
 
 def check_plant():
-    """Sanity check on the repeat-0 folds: hub sizes; the largest single-feature class signal (eta^2 of the
-    class means); and the 5-fold balanced accuracy of a logistic model on the true hub set means (chance 0.33)."""
+    """No model fit. Repeat-0 folds: hub set sizes; the largest single-feature class signal in the mean
+    (eta^2) and in the spread (largest / smallest class variance, the largest over features); and the 5-fold
+    balanced accuracy of a logistic model given the two products of the true hub set means, the ceiling for
+    a model that knows the edges (chance 0.33)."""
     import prep as P
     from sklearn.linear_model import LogisticRegression
     from sklearn.model_selection import cross_val_score
@@ -168,12 +185,91 @@ def check_plant():
                 X = Z[m].loc[ids, cols]
                 yy = y[ids].values
                 eta = max(float(np.var([X[c][yy == j].mean() for j in range(3)]) / max(X[c].var(), 1e-9)) for c in cols)
-                S = np.column_stack([X[mem].mean(1) for _, mem in hb[m]])
-                feats = np.column_stack([S, S[:, 0] * S[:, 1], np.abs(S).sum(1)])
+                vr = max(float(max(X[c][yy == j].var() for j in range(3)) / max(min(X[c][yy == j].var() for j in range(3)), 1e-9))
+                         for c in cols)
+                S = set_means(Z[m], ids, hb[m])
+                feats = np.column_stack([S[:, 0] * S[:, 1], S[:, 2] * S[:, 3]])
                 acc = cross_val_score(LogisticRegression(max_iter=2000, class_weight='balanced'), feats, yy, cv=5,
                                       scoring='balanced_accuracy').mean()
-                msg.append(f'{MODN[m]} hubs {extra["hubs"][MODN[m]]} max eta2 {eta:.3f} oracle bal.acc {acc:.2f}')
+                msg.append(f'{MODN[m]} hub sets {[n for _, n in extra["hubs"][MODN[m]]]} max eta2 {eta:.3f} '
+                           f'max var ratio {vr:.2f} oracle bal.acc {acc:.2f}')
             print(f'fold {k} delta {delta}: ' + ' | '.join(msg), flush=True)
+
+
+def gate_tabular():
+    """Design gate, tabular part (no GAT): inner-fit -> inner-validation split of the repeat-0 folds at
+    GATE_DELTA. Graph-free: elastic net and XGBoost per modality, XGBoost joint (both modalities' columns,
+    unobserved = NaN), all at configuration 0 of the frozen baseline grids. Edge-aware references: XGBoost
+    per modality with the miRDB target-set means added, and the oracle on the true set-mean products."""
+    import baselines as B
+    import prep as P
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.metrics import balanced_accuracy_score, f1_score
+    rows = []
+    for k in range(C.N_FOLDS):
+        fd = P.prep('main', K.PC3_REPEAT, k)
+        y, Z, _ = plant(fd, K.GATE_DELTA)
+        fdp = dict(fd, Z=Z)
+        hb = fold_hubs(fd)
+        t = fd['samples']
+        mods = lambda ids, ms: [i for i in ids if t.at[i, 'modality'] in ms]
+        preds = {}
+        fit, val = mods(fd['fit'], (0, 1)), mods(fd['val'], (0, 1))
+        p = B.fit_proba('xgb', B.xgb_configs()[0], 0, B.features(fdp, fit, 'subset', 'joint_nan'), y[fit].values,
+                        B.features(fdp, val, 'subset', 'joint_nan'))
+        preds['xgb_joint'] = dict(zip(val, p.argmax(1)))
+        for m, mode in ((0, 'mi'), (1, 'mr')):
+            fit, val = mods(fd['fit'], (m,)), mods(fd['val'], (m,))
+            yf = y[fit].values
+            for name, est, cfg, md in (('enet', 'enet', B.enet_configs()[0], mode), ('xgb', 'xgb', B.xgb_configs()[0], mode),
+                                       ('xgb_targetset (edge-aware)', 'xgb', B.xgb_configs()[0], mode + '_ts')):
+                p = B.fit_proba(est, cfg, 0, B.features(fdp, fit, 'subset', md), yf, B.features(fdp, val, 'subset', md))
+                preds.setdefault(name, {}).update(zip(val, p.argmax(1)))
+            Sf, Sv = set_means(Z[m], fit, hb[m]), set_means(Z[m], val, hb[m])
+            prod = lambda S: np.column_stack([S[:, 0] * S[:, 1], S[:, 2] * S[:, 3]])
+            o = LogisticRegression(max_iter=2000, class_weight='balanced').fit(prod(Sf), yf)
+            preds.setdefault('oracle (edge-aware)', {}).update(zip(val, o.predict(prod(Sv))))
+        for name, pr in preds.items():
+            for m in (0, 1):
+                ids = [i for i in pr if t.at[i, 'modality'] == m]
+                yt, yp = y[ids].values, np.array([pr[i] for i in ids])
+                rows.append({'model': name, 'fold': k, 'modality': MODN[m], 'n': len(ids),
+                             'bal_acc': balanced_accuracy_score(yt, yp), 'macro_f1': f1_score(yt, yp, average='macro')})
+    return pd.DataFrame(rows)
+
+
+def gate():
+    """Design gate: the tabular models of gate_tabular() plus joint_nocross (frozen GAT without cross edges,
+    config 0, seed 0, run with 'run --part gate'), all scored on the inner-validation split at GATE_DELTA.
+    PASS if every graph-free model's mean balanced accuracy over the 5 folds is <= GATE_MAX_BALACC on both
+    modalities. Exits 1 on FAIL (the notebook stops before any edge-using GAT fit)."""
+    from sklearn.metrics import balanced_accuracy_score, f1_score
+    import run_gat as R
+    d = gate_tabular()
+    rows = []
+    for k in range(C.N_FOLDS):
+        p = R.run_file(K.GATE_SCHEME, 'joint_nocross', K.PC3_REPEAT, k, 0, 0)
+        if not p.exists():
+            raise SystemExit(f'gate fit missing for fold {k}: run "run --part gate" first')
+        x = pd.read_csv(p)
+        for m in (0, 1):
+            xm = x[x.modality == m]
+            yp = xm[['p0', 'p1', 'p2']].values.argmax(1)
+            rows.append({'model': 'joint_nocross (GAT)', 'fold': k, 'modality': MODN[m], 'n': len(xm),
+                         'bal_acc': balanced_accuracy_score(xm.y, yp), 'macro_f1': f1_score(xm.y, yp, average='macro')})
+    d = pd.concat([d, pd.DataFrame(rows)])
+    tab = d.groupby(['model', 'modality']).agg(bal_acc=('bal_acc', 'mean'), bal_acc_min=('bal_acc', 'min'),
+                                                bal_acc_max=('bal_acc', 'max'), macro_f1=('macro_f1', 'mean'),
+                                                n_val=('n', 'sum')).reset_index()
+    tab['graph_free'] = ~tab.model.str.contains('edge-aware')
+    ok = bool((tab[tab.graph_free].bal_acc <= K.GATE_MAX_BALACC).all())
+    (OUT / 'tables').mkdir(parents=True, exist_ok=True)
+    tab.assign(verdict='PASS' if ok else 'FAIL').to_csv(OUT / 'tables/p3r_gate.csv', index=False)
+    print(tab.round(3).to_string(index=False))
+    print(f'design gate (graph-free mean inner-validation balanced accuracy <= {K.GATE_MAX_BALACC} at delta '
+          f'{K.GATE_DELTA}):', 'PASS' if ok else 'FAIL')
+    if not ok:
+        raise SystemExit(1)
 
 
 # ------------------------------------------------------------------ fit specifications
@@ -185,20 +281,24 @@ def specs(part):
         for d in K.PC3_DELTAS:
             for k in folds:
                 for arm in K.PC3_GAT_ARMS:
-                    out += [dict(part='A', kind='frozen', scheme=f'p3a_d{d}', repeat=K.PC3_REPEAT, fold=k, arm=arm, config=0,
+                    out += [dict(part='A', kind='frozen', scheme=f'p3ra_d{d}', repeat=K.PC3_REPEAT, fold=k, arm=arm, config=0,
                                  seed=s, delta=d, frac=None, w=0.55 if arm == 'joint_nocross' else 1.0) for s in K.PC3_SEEDS]
     elif part == 'B':
         for v, q in K.B_CANDIDATES:
             for d in K.B_SEL_DELTAS:
                 for cross in ('mirdb', 'none', 'rewired'):
                     for k in folds:
-                        out += [dict(part='B', kind='variant', scheme=f'p3bsel_d{d}', repeat=K.B_SEL_REPEAT, fold=k,
+                        out += [dict(part='B', kind='variant', scheme=f'p3rbsel_d{d}', repeat=K.B_SEL_REPEAT, fold=k,
                                      arm=f'{vname(v, q)}_{cross}', variant=v, vparam=q, cross=cross, config=K.B_SEL_CONFIG,
                                      seed=s, delta=d, frac=None, eval='val', w=1.2) for s in K.B_SEL_SEEDS]
             for k in folds:
                 out += [dict(part='B', kind='variant', scheme='p3bsel_real', repeat=K.B_SEL_REPEAT, fold=k,
                              arm=f'{vname(v, q)}_mirdb', variant=v, vparam=q, cross='mirdb', config=K.B_SEL_CONFIG,
                              seed=s, delta=None, frac=None, eval='val', w=1.2) for s in K.B_SEL_SEEDS]
+    elif part == 'gate':
+        out += [dict(part='gate', kind='variant', scheme=K.GATE_SCHEME, repeat=K.PC3_REPEAT, fold=k, arm='joint_nocross',
+                     variant=None, vparam=None, cross='none', config=0, seed=0, delta=K.GATE_DELTA, frac=None, eval='val', w=1.0)
+                for k in folds]
     elif part == 'C':
         for r in [0] + list(K.C_REPEATS):
             for f in K.C_FRACTIONS:
@@ -282,8 +382,13 @@ def run_v(fd, f, labels=None, Z=None, extra=None):
     Xv, Mv = P.examples(fd, val, nodes, n_mi, Z)
     Xt, Mt = P.examples(fd, test, nodes, n_mi, Z)
     t0 = time.time()
-    vl, ep, p = fit_predict_v(Xf, Mf, y[fit].values, Xv, Mv, y[val].values, Xt, Mt, len(nodes), nt, nets,
-                              R.CONFIGS[c], seed, f['variant'], f['vparam'], cross_idx)
+    if f['variant'] is None:          # frozen network (design gate: joint_nocross scored on inner validation)
+        import model as M
+        vl, ep, p = M.fit_predict(Xf, Mf, y[fit].values, Xv, Mv, y[val].values, Xt, Mt, len(nodes), nt, nets,
+                                  R.CONFIGS[c], 'gat', seed)
+    else:
+        vl, ep, p = fit_predict_v(Xf, Mf, y[fit].values, Xv, Mv, y[val].values, Xt, Mt, len(nodes), nt, nets,
+                                  R.CONFIGS[c], seed, f['variant'], f['vparam'], cross_idx)
     df = pd.DataFrame({'id': test, 'modality': t.loc[test, 'modality'].values, 'y': y[test].values,
                        'group': t.loc[test, 'group'].values, 'p0': p[:, 0], 'p1': p[:, 1], 'p2': p[:, 2]})
     df = df.assign(scheme=scheme, arm=arm, repeat=r, fold=k, config=c, seed=seed, val_loss=vl, epochs=ep,
@@ -327,11 +432,13 @@ def _fit(f):
 def smoke_pick(fs, part):
     first = lambda pred: [f for f in fs if pred(f) and f['fold'] == 0 and f['seed'] == 0][:1]
     if part == 'A':
-        return sum((first(lambda f, a=a: f['arm'] == a and f['scheme'] == 'p3a_d2.0') for a in K.PC3_GAT_ARMS), [])
+        return sum((first(lambda f, a=a: f['arm'] == a and f['scheme'] == 'p3ra_d1.0') for a in K.PC3_GAT_ARMS), [])
     if part == 'B':
-        out = sum((first(lambda f, a=f'{vname(v, q)}_mirdb': f['arm'] == a and f['scheme'] == 'p3bsel_d1.0')
+        out = sum((first(lambda f, a=f'{vname(v, q)}_mirdb': f['arm'] == a and f['scheme'] == 'p3rbsel_d1.0')
                    for v, q in K.B_CANDIDATES), [])
-        return out + sum((first(lambda f, a=a: f['arm'] == a and f['scheme'] == 'p3bsel_d1.0') for a in ('xfirst_none', 'gated_rewired')), [])
+        return out + sum((first(lambda f, a=a: f['arm'] == a and f['scheme'] == 'p3rbsel_d1.0') for a in ('xfirst_none', 'gated_rewired')), [])
+    if part == 'gate':
+        return first(lambda f: True)
     if part == 'C':
         return sum((first(lambda f, a=a: f['arm'] == a and f['repeat'] == 1 and f['scheme'] == 'lc_0.25') for a in K.C_ARMS), [])
     return first(lambda f: f['repeat'] == 0)
@@ -339,7 +446,7 @@ def smoke_pick(fs, part):
 
 def plan():
     rows = []
-    for part in ('A', 'B', 'C'):
+    for part in ('gate', 'A', 'B', 'C'):
         fs = specs(part)
         rows.append({'part': part, 'fits': len(fs), 'done': sum(fit_path(f).exists() for f in fs)})
     print(pd.DataFrame(rows).to_string(index=False))
@@ -397,7 +504,7 @@ def estimate(workers):
     per = lg.groupby('family').full_secs.mean().to_dict()
     fallback = float(lg.full_secs.mean())
     out = {}
-    for part in ('A', 'B', 'C'):
+    for part in ('gate', 'A', 'B'):
         fs = [f for f in specs(part) if not fit_path(f).exists()]
         out[part] = sum(per.get(_family(f), fallback) * (f['frac'] or 1.0) for f in fs) / workers / 3600
     print(f'GAT wall-clock still to run on {workers} workers (h):', {k: round(v, 2) for k, v in out.items()},
@@ -409,17 +516,17 @@ def _base_planted(args):
     import baselines as B
     import prep as P
     name, d, k = args
-    out = RUNS / f'p3a_d{d}' / name / f'r{K.PC3_REPEAT}_f{k}.csv'
+    out = RUNS / f'p3ra_d{d}' / name / f'r{K.PC3_REPEAT}_f{k}.csv'
     if out.exists():
         return out
     est, mode, ns, mods, n_seeds = B.MODELS[name]
     fd = P.prep('main', K.PC3_REPEAT, k)
     y, Z, _ = plant(fd, d)
-    fd2 = dict(fd, Z=Z)
+    fd = dict(fd, Z=Z)
     t = fd['samples']
     sel = lambda ids: [i for i in ids if t.at[i, 'modality'] in mods]
     fit, val, test = sel(fd['fit']), sel(fd['val']), sel(fd['test'])
-    Xf, Xv, Xt = (B.features(fd2, ids, ns, mode) for ids in (fit, val, test))
+    Xf, Xv, Xt = (B.features(fd, ids, ns, mode) for ids in (fit, val, test))
     yf, yv = y[fit].values, y[val].values
     w = B.class_weights(yf)
     cfgs = B.xgb_configs() if est == 'xgb' else B.enet_configs()
@@ -433,7 +540,7 @@ def _base_planted(args):
         rows.append((best, s, vls[best], B.fit_proba(est, cfgs[best], s, Xf, yf, Xt)))
     dfs = [pd.DataFrame({'id': test, 'modality': t.loc[test, 'modality'].values, 'y': y[test].values,
                          'group': t.loc[test, 'group'].values, 'p0': p[:, 0], 'p1': p[:, 1], 'p2': p[:, 2],
-                         'scheme': f'p3a_d{d}', 'arm': name, 'repeat': K.PC3_REPEAT, 'fold': k, 'config': c, 'seed': s,
+                         'scheme': f'p3ra_d{d}', 'arm': name, 'repeat': K.PC3_REPEAT, 'fold': k, 'config': c, 'seed': s,
                          'val_loss': vl, 'selected': c == best}) for c, s, vl, p in rows]
     out.parent.mkdir(parents=True, exist_ok=True)
     tmp = out.with_suffix('.tmp')
@@ -460,7 +567,7 @@ def baseline_jobs(part):
 def baseline_done(part, j):
     if part == 'A':
         n, d, k = j
-        return (RUNS / f'p3a_d{d}' / n / f'r{K.PC3_REPEAT}_f{k}.csv').exists()
+        return (RUNS / f'p3ra_d{d}' / n / f'r{K.PC3_REPEAT}_f{k}.csv').exists()
     n, r, k, f = j
     return (RUNS / f'lc_{f}' / n / f'r{r}_f{k}.csv').exists()
 
@@ -518,7 +625,7 @@ def analyze_A():
     import analysis as A
     rows = []
     for d in K.PC3_DELTAS:
-        sch = f'p3a_d{d}'
+        sch = f'p3ra_d{d}'
         g = _load(sch, K.PC3_GAT_ARMS)
         need = len(K.PC3_GAT_ARMS) * C.N_FOLDS * len(K.PC3_SEEDS)
         have = g.groupby(['arm', 'fold', 'seed']).ngroups if len(g) else 0
@@ -571,7 +678,7 @@ def select():
         rec = {'variant': v, 'vparam': q, 'name': vn}
         ok_any, zero_ok = False, True
         for d in K.B_SEL_DELTAS:
-            g = _load(f'p3bsel_d{d}', [f'{vn}_{c}' for c in ('mirdb', 'none', 'rewired')])
+            g = _load(f'p3rbsel_d{d}', [f'{vn}_{c}' for c in ('mirdb', 'none', 'rewired')])
             need = 3 * C.N_FOLDS * len(K.B_SEL_SEEDS)
             if (g.groupby(['arm', 'fold', 'seed']).ngroups if len(g) else 0) < need:
                 raise SystemExit(f'selection fits missing for {vn} delta {d}; run part B first')
@@ -715,13 +822,26 @@ def analyze(part):
 # ------------------------------------------------------------------ report
 def report():
     T = OUT / 'tables'
-    L = [f'## Phase 3 rows ({LABEL.lower()}; run on Kaggle from branch kaggle-phase3)', '',
+    L = [f'## Phase 3 rows ({LABEL.lower()}; run on Kaggle from branch kaggle-phase3r, the one approved retry of part A)', '',
          'None of these analyses was in the plan frozen after exploration (tag study-frozen-v1). They were designed after the '
          'frozen results were seen; their settings and decision rules were committed in `kaggle/phase3_config.py` before any '
          'phase-3 study fit ran. They do not change the frozen primary analysis.', '']
+    if (T / 'p3r_gate.csv').exists():
+        g = pd.read_csv(T / 'p3r_gate.csv')
+        L += ['### P3-A design gate (post-hoc, added after the frozen study)', '',
+              '| Model | Uses miRDB sets | Test mod. | Balanced accuracy, mean (range over 5 folds) | Macro-F1 |', '|---|---|---|---|---|']
+        for _, r in g.iterrows():
+            L.append(f'| {r.model.replace(" (edge-aware)", "")} | {"no" if r.graph_free else "yes"} | {r.modality} | '
+                     f'{r.bal_acc:.2f} ({r.bal_acc_min:.2f}–{r.bal_acc_max:.2f}) | {r.macro_f1:.2f} |')
+        L += ['', f'Gate: **{g.verdict.iloc[0]}**.', '',
+              f'Caption: run before any edge-using GAT fit, on the inner-validation split of repeat 0 (5 folds) at δ = {K.GATE_DELTA}. '
+              f'Graph-free models must have mean balanced accuracy ≤ {K.GATE_MAX_BALACC} (chance 0.33) on both modalities: elastic net and '
+              'XGBoost per modality and XGBoost joint (configuration 0 of the frozen baseline grids), and the frozen joint_nocross GAT '
+              '(configuration 0, seed 0). The edge-aware rows (XGBoost with the miRDB target-set means added; the oracle, a logistic '
+              'model on the two true set-mean products) show the signal is readable once the sets are known.', '']
     if (T / 'p3a_planted_control.csv').exists():
         a = pd.read_csv(T / 'p3a_planted_control.csv')
-        L += ['### P3-A. Planted-signal positive control (post-hoc, added after the frozen study)', '',
+        L += ['### P3-A. Planted-signal positive control, redesigned (post-hoc, added after the frozen study)', '',
               '| δ | Test mod. | joint_mirdb | joint_nocross | joint_rewired | XGBoost routed | Elastic net routed | '
               'mirdb − nocross ΔF1 (95% CI), p | mirdb − rewired ΔF1 (95% CI), p |', '|---|---|---|---|---|---|---|---|---|']
         for _, r in a.iterrows():
@@ -730,14 +850,16 @@ def report():
             L.append(f'| {r.delta} | {r.modality} | {_f1(r.f1_joint_mirdb)} | {_f1(r.f1_joint_nocross)} | {_f1(r.f1_joint_rewired)} | '
                      f'{_f1(r.get("f1_xgb_routed"))} | {_f1(r.get("f1_enet_routed"))} | {cell("vs_nocross")} | {cell("vs_rewired")} |')
         L += ['', f'Verdict against the rule committed in `phase3_config.py` before the runs: **{verdict_A(a)}**.', '',
-              'Caption: the real labels are permuted within each modality, so the real signal is gone. A class signal is then '
-              'planted that can only be read by grouping features along miRDB edges. In mRNA examples, the target sets of two hub '
-              'miRNAs are shifted by ±δ SD; in miRNA examples, the regulator sets of two hub genes are. The class is the XOR of the '
-              'two shift signs, and the third class has no shift, so no single feature carries the class. Frozen GAT arms in the '
-              'paper configuration on repeat 0, 5 outer folds × 3 seeds; routed baselines with the phase-1 16-configuration budget. '
-              'p is the patient-level sign-flip test on per-sample log-loss, and the CIs are Nadeau–Bengio corrected over 5 folds. '
-              'Success (stated before the runs): at δ = 1.0 and 2.0, joint_mirdb beats both joint_nocross and joint_rewired on at '
-              'least one modality (CI above 0 and p < 0.05), and no mirdb contrast differs from 0 at δ = 0.', '']
+              'Caption: the real labels are permuted within each modality, so the real signal is gone. Each example then gets four '
+              'latent values, one per miRDB hub set (the targets of four hub miRNAs in mRNA examples, the regulators of four hub genes '
+              f'in miRNA examples), added at δ × {K.PC3_AMPLITUDE:g} SD to every member of that set. The class fixes only the signs of the '
+              'two within-pair products, so every feature, every set mean and the within-set co-expression have the same distribution '
+              'in all classes; the class can be read only by knowing which features form each miRDB set. This replaces the first '
+              'design (an XOR of two set-mean shifts), which joint_nocross read as well as joint_mirdb. Frozen GAT arms in the paper '
+              'configuration on repeat 0, 5 outer folds × 3 seeds; routed baselines with the phase-1 16-configuration budget. p is the '
+              'patient-level sign-flip test on per-sample log-loss, and the CIs are Nadeau–Bengio corrected over 5 folds. Success '
+              f'(committed before the runs): at δ = {" and ".join(map(str, K.PC3_SUCCESS_DELTAS))}, joint_mirdb beats both joint_nocross and '
+              'joint_rewired on at least one modality (CI above 0 and p < 0.05), and no mirdb contrast differs from 0 at δ = 0.', '']
     if (T / 'p3b_selection.csv').exists():
         s = pd.read_csv(T / 'p3b_selection.csv')
         L += ['### P3-B. Edge-forcing GAT variants: selection (post-hoc, added after the frozen study)', '',
@@ -750,8 +872,8 @@ def report():
                      f'{"yes" if r.passes_planted else "no"} | {r.real_inner_val_loss:.3f} |')
         selj = OUT / 'selected_variant.json'
         chosen = json.load(open(selj)).get('name') if selj.exists() else None
-        L += ['', f'Selected: **{chosen or "none: no variant passed the planted control, so the outer evaluation is skipped"}**.', '',
-              'Caption: each variant was fitted with miRDB, no-cross and rewired edges on the planted task (repeat 0, 5 folds × 2 seeds, '
+        L += ['', f'Selected: **{chosen or "none: no variant passed the redesigned planted control. Reported as an architecture limitation: none of these GAT variants showed that it can use miRDB edge identity, and the outer evaluation is skipped"}**.', '',
+              'Caption: each variant was fitted with miRDB, no-cross and rewired edges on the redesigned planted task (repeat 0, 5 folds × 2 seeds, '
               'paper configuration) and scored on the inner-validation split only. A variant passes if, at δ = 1.0, miRDB edges beat '
               f'both controls by ≥ {K.B_PASS_MARGIN} macro-F1 (one-sided paired t-test p < 0.05 over folds) on at least one modality, '
               f'with |ΔF1| < {K.B_PASS_MARGIN} at δ = 0. Among passing variants, the one with the lowest real-data inner-validation '
@@ -794,14 +916,14 @@ def report():
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('cmd', choices=['data', 'restore', 'plan', 'check-plant', 'run', 'baselines', 'select', 'check-frozen',
-                                    'analyze', 'report', 'estimate'])
-    ap.add_argument('--part', default='A', choices=['A', 'B', 'C', 'eval'])
+                                    'analyze', 'report', 'estimate', 'gate'])
+    ap.add_argument('--part', default='A', choices=['gate', 'A', 'B', 'C', 'eval'])
     ap.add_argument('--smoke', action='store_true')
     ap.add_argument('--workers', type=int, default=os.cpu_count())
     ap.add_argument('--deadline', type=float, default=float('inf'))
     a = ap.parse_args()
     {'data': data, 'restore': restore, 'plan': plan, 'check-plant': check_plant, 'select': select,
-     'check-frozen': check_frozen, 'report': report, 'estimate': lambda: estimate(a.workers),
+     'check-frozen': check_frozen, 'report': report, 'gate': gate, 'estimate': lambda: estimate(a.workers),
      'run': lambda: run(a.part, a.smoke, a.workers, a.deadline),
      'baselines': lambda: baselines(a.part, a.workers, a.smoke),
      'analyze': lambda: analyze(a.part)}[a.cmd]()

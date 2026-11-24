@@ -1,7 +1,8 @@
 """Phase 3 settings: post-hoc, added after the frozen study (study-final, tag study-frozen-v1).
 
-Everything here was written and committed before any phase-3 study fit ran (only a one-fold smoke test on
-the development machine ran earlier, to check the code; its fits are not used). Nothing in study/ is changed;
+Everything here was written and committed before any phase-3 study fit ran. Earlier, on the development
+machine, only one-fold smoke tests (to check the code; their scores were not inspected or used) and, for the
+kaggle-phase3r retry, the design gate (graph-free models only) ran. Nothing in study/ is changed;
 the frozen code is imported, never edited.
 
 A. planted-signal positive control (does the architecture CAN use miRNA-mRNA edges?)
@@ -11,30 +12,55 @@ B. edge-forcing GAT variants: selection on (A-style planted task, inner validati
 C. learning-curve repeats 1-4 for the 25% / 50% points
 """
 
-# ---------------------------------------------------------------- A. planted-signal control
-# Labels are the real labels permuted within modality (signal destroyed), then a class signal is planted
-# that can only be read by grouping features along miRDB edges:
-#   mRNA examples : two hub miRNAs (most miRDB targets in the fold's node subset, target sets made
-#                   disjoint); every target gene of hub h gets +s_h * delta (z-score units)
-#   miRNA examples: two hub genes (most miRDB regulators, regulator sets disjoint); every regulator of
-#                   hub h gets +s_h * delta
-#   class 0: s_1 = s_2 = +-1 (same sign, random), class 1: s_1 = -s_2 = +-1, class 2: s_1 = s_2 = 0
-# Every single feature has zero mean shift in every class, so no feature is marginally informative;
-# the class is the XOR of two set means (and their magnitude for class 2).
-PC3_DELTAS = [0.0, 0.5, 1.0, 2.0]   # set from the oracle check (phase3.py check-plant, no model fit): balanced accuracy
-                                     # of a logistic model on the two true hub set means, folds 0-4, miRNA / mRNA:
-                                     # 0.27-0.34 / 0.26-0.43 at 0, 0.46-0.49 / 0.57-0.70 at 0.5,
-                                     # 0.64-0.75 / 0.81-0.84 at 1, 0.82-0.90 / 0.93-0.97 at 2 (chance 0.33)
-PC3_MIN_SET = 5                 # a hub needs >= 5 members after making the two sets disjoint
+# ---------------------------------------------------------------- A. planted-signal control (redesign)
+# Phase 3a's first design (an XOR of two hub set means, planted as mean shifts) failed: joint_nocross read it
+# as well as joint_mirdb (0.976 vs 0.982 miRNA at delta 1), because a fixed set mean is a linear projection
+# that any flexible joint model learns without the graph. This redesign (approved by Heram as one bounded
+# retry; post-hoc) makes the label depend on WHICH features are grouped together by miRDB edges.
+#
+# Design (post-hoc). Real labels are permuted within modality (real signal destroyed); then, per example,
+# four latent values u_1..u_4 ~ N(0, 1) are drawn, one per hub set, and delta * PC3_AMPLITUDE * u_i is added
+# to every member of hub set i:
+#   mRNA examples : four hub miRNAs (most miRDB targets in the fold's node subset, target sets made disjoint,
+#                   >= PC3_MIN_SET genes each); members = their target genes
+#   miRNA examples: four hub genes (most miRDB regulators, regulator sets disjoint); members = their regulators
+#   the class fixes only the SIGNS of u1*u2 and u3*u4: class 0 (+, +), class 1 (-, -), class 2 (+, -);
+#   each pair's common sign and all magnitudes are random
+# So in every class each feature has the same mean and spread, each set mean has the same distribution, and
+# the within-set co-expression is the same; only the sign of the association between the two sets of a pair
+# differs, which the frozen co-expression networks (|Pearson r|) do not record. Reading the class requires
+# knowing which features form each miRDB set (the edge identity); degree-preserving rewiring scrambles the sets.
+# delta = 0 is pure noise. The labels and u do not depend on delta.
+#
+# Design history (all on planted data only, no edge-using GAT fit): (1) relabelling by the signs of products
+# of the REAL hub set means failed its own check: real set means correlate 0.6-0.94, so classes came out about
+# 70/8/22 and per-gene class variances differed up to 18x. (2) This latent design at amplitude 1, 2, 3 (z units):
+# graph-free XGBoost mean inner-validation balanced accuracy 0.34-0.41 / 0.36-0.40 / 0.38-0.46, edge-aware
+# oracle (logistic on the true set-mean products) 0.45-0.69 / 0.66-0.77 / 0.76-0.82 (miRNA-mRNA). Amplitude 2
+# is the largest tried that keeps every graph-free model under the gate, so delta = 1 means amplitude 2.
+PC3_DELTAS = [0.0, 0.5, 0.75, 1.0]
+PC3_N_HUBS = 4
+PC3_AMPLITUDE = 2.0             # z-score units added per unit latent value at delta = 1 (see the gate notes)
+PC3_MIN_SET = 5
 PC3_SEED = 4242
 PC3_REPEAT = 0
 PC3_SEEDS = [0, 1, 2]           # GAT seeds per fold
 PC3_GAT_ARMS = ['joint_mirdb', 'joint_nocross', 'joint_rewired']   # frozen arms, paper configuration (config 0)
 PC3_BASELINES = ['xgb_routed_mi', 'xgb_routed_mr', 'enet_routed_mi', 'enet_routed_mr']   # 16-config budget, as phase 1
-# success (stated before any GAT run): at delta 1.0 and 2.0, joint_mirdb beats BOTH joint_nocross and
+# success (stated before any GAT run): at delta 0.75 and 1.0, joint_mirdb beats BOTH joint_nocross and
 # joint_rewired on at least one test modality with the corrected 95% CI of dF1 above 0 and sign-flip p < 0.05,
 # and at delta = 0 no mirdb contrast has a corrected 95% CI excluding 0
-PC3_SUCCESS_DELTAS = [1.0, 2.0]
+PC3_SUCCESS_DELTAS = [0.75, 1.0]
+
+# design gate (run BEFORE any edge-using GAT fit; inner-validation split of repeat 0, 5 folds, delta = 1):
+# the graph-free models must sit near chance: mean inner-validation balanced accuracy <= GATE_MAX_BALACC
+# on both test modalities for each of: logistic regression (elastic net, config 0) per modality, XGBoost per
+# modality and XGBoost joint on the concatenated features (config 0), and joint_nocross (frozen GAT without
+# cross edges, config 0, seed 0). Edge-aware references (reported, not gated): XGBoost with the miRDB
+# target-set means added, and the oracle (logistic on the two true set-mean products).
+GATE_DELTA = 1.0
+GATE_MAX_BALACC = 0.43          # chance 0.33 + 0.10
+GATE_SCHEME = 'p3rgate_d1.0'
 
 # ---------------------------------------------------------------- B. edge-forcing variants
 # candidates (variant, parameter); see kaggle/phase3_model.py
