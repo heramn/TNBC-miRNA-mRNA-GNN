@@ -48,3 +48,34 @@ An isolated Python 3.12 venv (uv) with phase 1's pins: torch 2.15.0+cpu, torch_g
 scikit-learn 1.7.2 (1.8 changes the grouped splits), numpy 2.5.5, pandas 3.1.1, scipy 1.18.1, xgboost 3.4.1,
 pydeseq2 0.6.0. Kaggle's preinstalled CUDA torch is left alone; PyG 2.8.1 is pure Python and needs no
 CUDA-specific extension wheels. Threads are pinned to 1 per process, as in phase 1.
+
+# Phase 3 on Kaggle (post-hoc, added after the frozen study)
+
+Three add-ons that were **not** in the plan frozen after exploration (tag `study-frozen-v1`). Settings and decision
+rules are in `phase3_config.py`, committed before any phase-3 study fit ran. `study/` is imported, never edited.
+`phase3.py` drives everything; `phase3_model.py` holds the edge-forcing variants (subclasses of the frozen `Net`).
+
+| Notebook | Part | Work | GAT fits | Wall clock, 4 CPUs (from the smoke test) |
+|---|---|---|---|---|
+| `phase3a.ipynb` | A. Planted-signal positive control | frozen joint_mirdb / joint_nocross / joint_rewired (paper config) + routed XGBoost / elastic net, δ ∈ {0, 0.5, 1, 2}, repeat 0, 5 folds × 3 seeds | 180 | ≈ 1.3 h |
+| | B. Edge-forcing variant selection | xfirst, gated, selfdrop q = 0.25 / 0.5; planted task on the inner-validation split + real-data inner-validation loss; writes `selected_variant.json`; no outer test fold | 280 | ≈ 2.3 h |
+| | C. Learning-curve repeats | 25% / 50%, joint_mirdb + joint_nocross (+ baselines), repeats 0–4 × 5 folds × 5 seeds (repeat 0 is reused from the phase-2 output if attached) | 500 (400 with phase 2 attached) | ≈ 1.4 h |
+| `phase3b.ipynb` | Outer evaluation of the selected variant | 16 configs at seed 0, then 10 seeds (miRDB) and 5 seeds (rewired, no-cross) of the chosen config, 5 repeats × 5 folds | 875 | ≈ 4–10 h depending on the variant (35–160 s per fit) |
+
+Notebook 1 totals about 5 h of GAT fits plus installs and baselines, inside one 12 h session. Notebook 2 may need a
+second session for the slower variants; no new fit starts after 10.5 h, and `restore` resumes it.
+
+## Run it
+
+1. Import `kaggle/phase3a.ipynb` from branch `kaggle-phase3` (as for phase 2). Internet **on**, accelerator **None**.
+   Optional: attach the phase-2 notebook's output so the 100 repeat-0 learning-curve fits are reused.
+2. Run all with `SMOKE_TEST = True` (one fold, one seed per arm type, then a runtime estimate). Then set
+   `SMOKE_TEST = False` and *Save Version → Save & Run All*.
+3. Download `phase3_output/selected_variant.json` and commit it as `kaggle/phase3_frozen/selected_variant.json` on
+   `kaggle-phase3`. If it says `"selected": false`, no variant passed the planted control and notebook 2 is not run.
+4. Import `kaggle/phase3b.ipynb` and run it the same way. `check-frozen` stops it unless the selection is committed
+   and unmodified, and the clone is taken after that commit.
+5. Each notebook writes `phase3_output/RESULTS_phase3_rows.md` (rows and captions for RESULTS.md) and zips
+   `phase3_runs/` and `phase3_output/`.
+
+The resume rules are the same as phase 2: attach the previous version's output and run again.
