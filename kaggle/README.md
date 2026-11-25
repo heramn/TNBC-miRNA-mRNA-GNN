@@ -86,15 +86,17 @@ The resume rules are the same as phase 2: attach the previous version's output a
 Phase 3a (branch `kaggle-phase3`, commit `5a5bec9`) failed its planted control: joint_nocross read the planted XOR of
 two set means as well as joint_mirdb (0.976 vs 0.982 miRNA at δ = 1), so the control did not require edges, and no
 variant passed. Heram approved one bounded retry that changes only the control. The variants (xfirst, gated,
-selfdrop 0.25 / 0.5) and the pass rule are unchanged. Part C is finished and is not rerun.
+selfdrop 0.25 / 0.5) and the pass rule are unchanged. Pass/fail for part A and for each variant uses the same frozen rule at strength δ = 1 only: beat
+both the no-edge and the rewired model by ≥ 0.03 macro-F1, one-sided paired p < 0.05 over 5 folds, on at least one
+modality, and differ by < 0.03 at δ = 0. Part C is finished and is not rerun.
 
 `phase3r.ipynb` replaces `phase3a.ipynb` on this branch:
 
 | Step | GAT fits | Wall clock, 4 CPUs |
 |---|---|---|
 | Design gate: graph-free models must be near chance at δ = 1 (inner validation); the notebook stops on FAIL | 5 | minutes |
-| A. Redesigned planted control, δ ∈ {0, 0.5, 0.75, 1}, 5 folds × 3 seeds | 180 | see the smoke-test estimate |
-| B. Variant selection on the redesigned task (inner validation only) | 280 (240 with phase 3a's output attached) | see the smoke-test estimate |
+| A. Redesigned planted control, δ ∈ {0, 0.5, 0.75, 1}, 5 folds × 3 seeds; pass/fail at δ = 1 only (δ = 0.5, 0.75 are diagnostics) | 180 | about 1.3 h |
+| B. Variant selection on the redesigned task (inner validation only, δ = 0 and 1) | 280 (240 with phase 3a's output attached) | about 2 h |
 
 The planted signal and the gate are described in `phase3_config.py`. `phase3b.ipynb` (the outer evaluation) is
 unchanged apart from cloning `kaggle-phase3r`; it runs only if a variant passes and its `selected_variant.json` is

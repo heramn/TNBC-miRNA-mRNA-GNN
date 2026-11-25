@@ -654,49 +654,71 @@ def analyze_A():
     print(tab.round(4).to_string())
 
 
-def verdict_A(tab):
-    if tab.empty or set(K.PC3_DELTAS) - set(tab.delta):
-        return 'incomplete'
-    beats = lambda r, tag: r[f'{tag}_corrected_ci95_lo'] > 0 and r[f'{tag}_signflip_p_logloss'] < 0.05
-    ok = all(any(beats(r, 'vs_nocross') and beats(r, 'vs_rewired') for _, r in tab[tab.delta == d].iterrows())
-             for d in K.PC3_SUCCESS_DELTAS)
-    tie = all(r[f'{tag}_corrected_ci95_lo'] <= 0 <= r[f'{tag}_corrected_ci95_hi']
-              for _, r in tab[tab.delta == 0.0].iterrows() for tag in ('vs_nocross', 'vs_rewired'))
-    if ok and tie:
+def fold_rule(g, arm, others):
+    """Fold-level paired differences for the frozen pass rule: macro-F1 per (arm, fold, seed), averaged over
+    seeds within each fold; arm minus each other arm per test modality; mean dF1 and one-sided paired t-test
+    p (greater) over the folds. Returns {(modality, other): (mean dF1, p)}."""
+    from scipy import stats
+    import analysis as A
+    out = {}
+    for mod in (0, 1):
+        gm = g[g.modality == mod]
+        f1 = {key: A.macro_f1(x.y.values, x[['p0', 'p1', 'p2']].values.argmax(1)) for key, x in gm.groupby(['arm', 'fold', 'seed'])}
+        fold_f1 = pd.Series(f1).groupby(level=[0, 1]).mean()
+        for o in others:
+            diff = (fold_f1[arm] - fold_f1[o]).values
+            p = float(stats.ttest_1samp(diff, 0, alternative='greater').pvalue) if diff.std() > 0 else (0.0 if diff.mean() > 0 else 1.0)
+            out[(MODN[mod], o)] = (float(diff.mean()), p)
+    return out
+
+
+def passes_rule(at_rule, at_zero):
+    """The frozen rule: at strength RULE_DELTA, on at least one modality, dF1 >= B_PASS_MARGIN with p < 0.05
+    against every comparison arm; at strength 0, every |dF1| < B_PASS_MARGIN."""
+    others = sorted({o for _, o in at_rule})
+    ok = any(all(at_rule[(m, o)][0] >= K.B_PASS_MARGIN and at_rule[(m, o)][1] < 0.05 for o in others) for m in MODN.values())
+    zero = all(abs(d) < K.B_PASS_MARGIN for d, _ in at_zero.values())
+    return ok and zero, ok, zero
+
+
+def verdict_A():
+    """Part A pass/fail with the frozen rule at strength RULE_DELTA only (and 0); other strengths are
+    diagnostics. Writes tables/p3a_rule.csv."""
+    res = {}
+    for d in (K.RULE_DELTA, 0.0):
+        g = _load(f'p3ra_d{d}', K.PC3_GAT_ARMS)
+        need = len(K.PC3_GAT_ARMS) * C.N_FOLDS * len(K.PC3_SEEDS)
+        if (g.groupby(['arm', 'fold', 'seed']).ngroups if len(g) else 0) < need:
+            return 'incomplete'
+        res[d] = fold_rule(g, 'joint_mirdb', ['joint_nocross', 'joint_rewired'])
+    ok_all, ok, zero = passes_rule(res[K.RULE_DELTA], res[0.0])
+    rows = [{'delta': d, 'modality': m, 'contrast': f'joint_mirdb - {o}', 'fold_mean_dF1': v[0], 'one_sided_p': v[1]}
+            for d, r in res.items() for (m, o), v in r.items()]
+    (OUT / 'tables').mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(rows).to_csv(OUT / 'tables/p3a_rule.csv', index=False)
+    if ok_all:
         return 'PASS'
-    return 'FAIL: no clear miRDB-edge advantage at a nonzero strength' if not ok else 'FAIL: a difference at zero strength'
+    return 'FAIL: no miRDB-edge advantage meeting the rule at strength 1' if not ok else 'FAIL: a difference at strength 0'
 
 
 def select():
     """Step 1: planted task on inner validation; step 2: real-data inner-validation loss. Writes
     OUT/selected_variant.json, to be committed as kaggle/phase3_frozen/selected_variant.json."""
-    from scipy import stats
-    import analysis as A
     rows = []
     for v, q in K.B_CANDIDATES:
         vn = vname(v, q)
         rec = {'variant': v, 'vparam': q, 'name': vn}
-        ok_any, zero_ok = False, True
+        res = {}
         for d in K.B_SEL_DELTAS:
             g = _load(f'p3rbsel_d{d}', [f'{vn}_{c}' for c in ('mirdb', 'none', 'rewired')])
             need = 3 * C.N_FOLDS * len(K.B_SEL_SEEDS)
             if (g.groupby(['arm', 'fold', 'seed']).ngroups if len(g) else 0) < need:
                 raise SystemExit(f'selection fits missing for {vn} delta {d}; run part B first')
-            for mod in (0, 1):
-                gm = g[g.modality == mod]
-                f1 = {key: A.macro_f1(x.y.values, x[['p0', 'p1', 'p2']].values.argmax(1)) for key, x in gm.groupby(['arm', 'fold', 'seed'])}
-                fold_f1 = pd.Series(f1).groupby(level=[0, 1]).mean()
-                for other in ('none', 'rewired'):
-                    diff = (fold_f1[f'{vn}_mirdb'] - fold_f1[f'{vn}_{other}']).values
-                    p = float(stats.ttest_1samp(diff, 0, alternative='greater').pvalue) if diff.std() > 0 else (0.0 if diff.mean() > 0 else 1.0)
-                    rec[f'd{d}_{MODN[mod]}_vs_{other}_dF1'] = float(diff.mean())
-                    rec[f'd{d}_{MODN[mod]}_vs_{other}_p'] = p
-                if d == 0.0:
-                    zero_ok &= all(abs(rec[f'd0.0_{MODN[mod]}_vs_{o}_dF1']) < K.B_PASS_MARGIN for o in ('none', 'rewired'))
-                else:
-                    ok_any |= all(rec[f'd{d}_{MODN[mod]}_vs_{o}_dF1'] >= K.B_PASS_MARGIN and rec[f'd{d}_{MODN[mod]}_vs_{o}_p'] < 0.05
-                                  for o in ('none', 'rewired'))
-        rec['passes_planted'] = bool(ok_any and zero_ok)
+            res[d] = fold_rule(g, f'{vn}_mirdb', [f'{vn}_none', f'{vn}_rewired'])
+            for (m, o), (df, p) in res[d].items():
+                rec[f'd{d}_{m}_vs_{o.rsplit("_", 1)[1]}_dF1'] = df
+                rec[f'd{d}_{m}_vs_{o.rsplit("_", 1)[1]}_p'] = p
+        rec['passes_planted'] = passes_rule(res[K.RULE_DELTA], res[0.0])[0]
         real = _load('p3bsel_real', [f'{vn}_mirdb'])
         if real.groupby(['fold', 'seed']).ngroups < C.N_FOLDS * len(K.B_SEL_SEEDS):
             raise SystemExit(f'real-data selection fits missing for {vn}; run part B first')
@@ -849,7 +871,13 @@ def report():
                                 f'{_d(r[f"{tag}_corrected_ci95_hi"])}), {_p(r[f"{tag}_signflip_p_logloss"])}')
             L.append(f'| {r.delta} | {r.modality} | {_f1(r.f1_joint_mirdb)} | {_f1(r.f1_joint_nocross)} | {_f1(r.f1_joint_rewired)} | '
                      f'{_f1(r.get("f1_xgb_routed"))} | {_f1(r.get("f1_enet_routed"))} | {cell("vs_nocross")} | {cell("vs_rewired")} |')
-        L += ['', f'Verdict against the rule committed in `phase3_config.py` before the runs: **{verdict_A(a)}**.', '',
+        v = verdict_A()
+        L += ['', 'Rows at δ = 0.5 and 0.75 are diagnostics (the detection curve); they do not enter the pass/fail decision.', '']
+        if (T / 'p3a_rule.csv').exists() and v != 'incomplete':
+            ru = pd.read_csv(T / 'p3a_rule.csv')
+            L += ['| δ | Test mod. | Contrast | Fold-level ΔF1 (mean of 5 folds) | One-sided paired p |', '|---|---|---|---|---|']
+            L += [f'| {r.delta} | {r.modality} | {r.contrast} | {_d(r.fold_mean_dF1)} | {_p(r.one_sided_p)} |' for _, r in ru.iterrows()]
+        L += ['', f'Pass/fail (frozen rule, strength 1 only): **{v}**.', '',
               'Caption: the real labels are permuted within each modality, so the real signal is gone. Each example then gets four '
               'latent values, one per miRDB hub set (the targets of four hub miRNAs in mRNA examples, the regulators of four hub genes '
               f'in miRNA examples), added at δ × {K.PC3_AMPLITUDE:g} SD to every member of that set. The class fixes only the signs of the '
@@ -857,9 +885,11 @@ def report():
               'in all classes; the class can be read only by knowing which features form each miRDB set. This replaces the first '
               'design (an XOR of two set-mean shifts), which joint_nocross read as well as joint_mirdb. Frozen GAT arms in the paper '
               'configuration on repeat 0, 5 outer folds × 3 seeds; routed baselines with the phase-1 16-configuration budget. p is the '
-              'patient-level sign-flip test on per-sample log-loss, and the CIs are Nadeau–Bengio corrected over 5 folds. Success '
-              f'(committed before the runs): at δ = {" and ".join(map(str, K.PC3_SUCCESS_DELTAS))}, joint_mirdb beats both joint_nocross and '
-              'joint_rewired on at least one modality (CI above 0 and p < 0.05), and no mirdb contrast differs from 0 at δ = 0.', '']
+              'patient-level sign-flip test on per-sample log-loss, and the CIs are Nadeau–Bengio corrected over 5 folds; both are '
+              'descriptive. Pass/fail uses only the frozen rule, the same as for the variant selection and phase 3a: at strength 1, '
+              f'joint_mirdb beats both joint_nocross (no edges) and joint_rewired (shuffled edges) by ≥ {K.B_PASS_MARGIN} macro-F1 '
+              '(mean of fold-level differences, seeds averaged within fold) with one-sided paired t-test p < 0.05 over the 5 folds on '
+              f'at least one modality, and every |ΔF1| < {K.B_PASS_MARGIN} at strength 0.', '']
     if (T / 'p3b_selection.csv').exists():
         s = pd.read_csv(T / 'p3b_selection.csv')
         L += ['### P3-B. Edge-forcing GAT variants: selection (post-hoc, added after the frozen study)', '',
@@ -874,7 +904,8 @@ def report():
         chosen = json.load(open(selj)).get('name') if selj.exists() else None
         L += ['', f'Selected: **{chosen or "none: no variant passed the redesigned planted control. Reported as an architecture limitation: none of these GAT variants showed that it can use miRDB edge identity, and the outer evaluation is skipped"}**.', '',
               'Caption: each variant was fitted with miRDB, no-cross and rewired edges on the redesigned planted task (repeat 0, 5 folds × 2 seeds, '
-              'paper configuration) and scored on the inner-validation split only. A variant passes if, at δ = 1.0, miRDB edges beat '
+              'paper configuration) and scored on the inner-validation split only. A variant passes if, at δ = 1.0 (the only strength '
+              'used for the decision), miRDB edges beat '
               f'both controls by ≥ {K.B_PASS_MARGIN} macro-F1 (one-sided paired t-test p < 0.05 over folds) on at least one modality, '
               f'with |ΔF1| < {K.B_PASS_MARGIN} at δ = 0. Among passing variants, the one with the lowest real-data inner-validation '
               'loss is selected. No outer test fold was used for the selection.', '']

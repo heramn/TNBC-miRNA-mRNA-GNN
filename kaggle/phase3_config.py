@@ -47,10 +47,13 @@ PC3_REPEAT = 0
 PC3_SEEDS = [0, 1, 2]           # GAT seeds per fold
 PC3_GAT_ARMS = ['joint_mirdb', 'joint_nocross', 'joint_rewired']   # frozen arms, paper configuration (config 0)
 PC3_BASELINES = ['xgb_routed_mi', 'xgb_routed_mr', 'enet_routed_mi', 'enet_routed_mr']   # 16-config budget, as phase 1
-# success (stated before any GAT run): at delta 0.75 and 1.0, joint_mirdb beats BOTH joint_nocross and
-# joint_rewired on at least one test modality with the corrected 95% CI of dF1 above 0 and sign-flip p < 0.05,
-# and at delta = 0 no mirdb contrast has a corrected 95% CI excluding 0
-PC3_SUCCESS_DELTAS = [0.75, 1.0]
+# pass/fail (Heram's decision, consistent with phase 3a and projects/tnbc-paper.md): the frozen rule at
+# strength RULE_DELTA = 1 ONLY. joint_mirdb must beat BOTH joint_nocross (no edges) and joint_rewired (shuffled
+# edges) by mean fold-level dF1 >= B_PASS_MARGIN with one-sided paired t-test p < 0.05 over the 5 folds on at
+# least one test modality, and at strength 0 every mean |dF1| < B_PASS_MARGIN. This is the same rule (same
+# code, phase3.py fold_rule / passes_rule) as the variant selection in part B. Strengths 0.5 and 0.75 are
+# diagnostics only: reported as a detection curve, never used for pass/fail or selected_variant.json.
+RULE_DELTA = 1.0
 
 # design gate (run BEFORE any edge-using GAT fit; inner-validation split of repeat 0, 5 folds, delta = 1):
 # the graph-free models must sit near chance: mean inner-validation balanced accuracy <= GATE_MAX_BALACC
@@ -74,7 +77,7 @@ B_CANDIDATES = [
 B_SEL_REPEAT = 0
 B_SEL_SEEDS = [0, 1]
 B_SEL_CONFIG = 0               # paper configuration for every selection fit
-B_SEL_DELTAS = [0.0, 1.0]      # planted task used for selection, scored on the INNER-VALIDATION split
+B_SEL_DELTAS = [0.0, 1.0]      # planted task for selection: strength 0 and RULE_DELTA only; INNER-VALIDATION split
 # step 1 (planted, inner validation, fold-level paired differences over 5 folds x 2 seeds):
 #   pass if at delta = 1.0 the variant with miRDB edges beats the same variant with no cross edges AND with
 #   rewired edges by mean dF1 >= B_PASS_MARGIN with one-sided paired t-test p < 0.05 over the 5 folds, on at
